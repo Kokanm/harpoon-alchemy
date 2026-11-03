@@ -1,0 +1,66 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!78 &1
+TagManager:
+  serializedVersion: 3
+  tags: []
+  layers:
+  - Default
+  - TransparentFX
+  - Ignore Raycast
+  - 
+  - Water
+  - UI
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  m_SortingLayers:
+  - name: Default
+    uniqueID: 0
+    locked: 0
+  - name: Sky
+    uniqueID: 1700000001
+    locked: 0
+  - name: Stage
+    uniqueID: 1700000002
+    locked: 0
+  - name: Bubbles
+    uniqueID: 1700000003
+    locked: 0
+  - name: Shots
+    uniqueID: 1700000004
+    locked: 0
+  - name: Player
+    uniqueID: 1700000005
+    locked: 0
+  - name: FX
+    uniqueID: 1700000006
+    locked: 0
+  - name: UI
+    uniqueID: 1700000007
+    locked: 0
+  m_RenderingLayers:
+  - Default
