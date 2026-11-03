@@ -14,10 +14,12 @@ namespace Bubblewright
         public static readonly Color32 Primary = Palette.Cream;   // banners, titles, numbers
         public static readonly Color32 Secondary = Palette.Mist;  // prompts, hints, descriptions
         public static readonly Color32 Accent = Palette.Mint;     // score lines, the highlighted card
+        public static readonly Color32 Warning = Palette.Lemon;   // storm timer, storm banner, active cheats
 
         // How dark the backing panels are. Plates sit behind banner text; Dim covers the stage under the upgrade cards.
         public const float PlateAlpha = 0.8f;
         public const float DimAlpha = 0.7f;
+        public const float TimerTrackAlpha = 0.6f;
 
         // Backgrounds, worst case first. The sky is dithered deep and dusk; dusk is the lighter, harder one.
         public static Color SkyWorst => Palette.Dusk;
@@ -26,6 +28,10 @@ namespace Bubblewright
         public static Color CardFill => Palette.Deep;
         public static Color CardFillHover => Palette.Mix(Palette.Deep, Palette.Mint, 0.18f);
         public static Color GroundStrip => Palette.Ink;
+        public static Color TimerTrack => Over(Palette.Ink, TimerTrackAlpha, SkyWorst);
+        public static Color DebugPanel => Over(Palette.Ink, 0.95f, Dimmed);
+        public static Color DebugButtonHover => Palette.Dusk;
+        public static Color DebugButtonOn => Palette.Mint;
 
         /// <summary>WCAG AA: 4.5:1 for text, 3:1 for the edges of controls such as a card's border.</summary>
         public const float MinTextContrast = 4.5f;
@@ -48,6 +54,14 @@ namespace Bubblewright
             yield return ("Hovered card description", Primary, CardFillHover);
             yield return ("Desktop help in the ground strip", Secondary, GroundStrip);
             yield return ("Build line in the ground strip", Primary, GroundStrip);
+            yield return ("Timer warning and cheats on the sky", Warning, SkyWorst);
+            yield return ("Storm banner on a plate", Warning, Plate);
+            yield return ("Pause button label", Primary, CardFill);
+            yield return ("Debug panel title", Warning, DebugPanel);
+            yield return ("Debug panel labels", Secondary, DebugPanel);
+            yield return ("Debug button", Primary, CardFill);
+            yield return ("Debug button under the mouse", Primary, DebugButtonHover);
+            yield return ("Debug toggle that is on", Palette.Ink, DebugButtonOn);
         }
 
         /// <summary>Card borders against the dimmed stage around them.</summary>
@@ -55,6 +69,11 @@ namespace Bubblewright
         {
             yield return ("Card border", Palette.Lilac, Dimmed);
             yield return ("Hovered card border", Palette.Mint, Dimmed);
+            yield return ("Pause button border on the sky", Palette.Mist, SkyWorst);
+            yield return ("Timer bar", Palette.Mint, TimerTrack);
+            yield return ("Timer bar, last seconds", Palette.Lemon, TimerTrack);
+            yield return ("Timer bar, storm", Palette.Coral, TimerTrack);
+            yield return ("Debug button border on the panel", Palette.Lilac, DebugPanel);
         }
 
         /// <summary>Colour a with alpha laid over an opaque background.</summary>

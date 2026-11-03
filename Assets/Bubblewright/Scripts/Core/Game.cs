@@ -8,6 +8,7 @@ using UnityEngine.Rendering.Universal;
 namespace Bubblewright
 {
     /// <summary>
+    /// The pause menu and the debug panel live in Game.Menus.cs.
     /// Builds and runs the prototype entirely from code: camera, stage, Wick, harpoons, bubbles,
     /// touch controls and HUD. A run is a few generated stages with a pick-one-of-three upgrade between them;
     /// losing every heart ends the run, and the next one starts again from stage 1. Drop it on an empty GameObject, or just press Play in any scene: if no Game
@@ -17,7 +18,7 @@ namespace Bubblewright
     /// The ground strip (thumb controls) is y = -4 to 0.
     /// </summary>
     [DefaultExecutionOrder(-100)]
-    public class Game : MonoBehaviour
+    public partial class Game : MonoBehaviour
     {
         enum State { Intro, Play, Clear, Pick, Over }
         const string BestScoreKey = "Bubblewright.BestScore";
@@ -47,6 +48,8 @@ namespace Bubblewright
         float shake;
         bool turnedForCelebration, celebrating;
         float shotTimer;
+        float stormClock, stormBanner;
+        bool storm;
         Run run;
         int bestScore;
         bool newBest;
@@ -172,6 +175,8 @@ namespace Bubblewright
             freeze = slowMo = shake = 0f;
             shotTimer = 0f;
             turnedForCelebration = celebrating = false;
+            stormClock = stormBanner = 0f;
+            storm = false;
 
             foreach (var s in StageGenerator.Generate(run.Stage, run.Rng))
             {
@@ -227,6 +232,12 @@ namespace Bubblewright
 
             // Phones are locked to landscape; if we still end up in portrait, pause behind a prompt.
             if (Screen.height > Screen.width)
+            {
+                touchView.Refresh(input, T);
+                return;
+            }
+
+            if (UpdatePause())
             {
                 touchView.Refresh(input, T);
                 return;
@@ -298,7 +309,11 @@ namespace Bubblewright
             }
             TickHarpoons(dt);
 
-            for (int i = 0; i < bubbles.Count; i++) bubbles[i].Tick(dt);
+            if (!debug.freezeTimer) stormClock += dt;
+            if (!storm && stormClock >= StageTimeLimit) StartStorm();
+            if (stormBanner > 0f) stormBanner -= dt;
+
+            for (int i = 0; i < bubbles.Count; i++) bubbles[i].Tick(BubbleDt(dt));
 
             foreach (var h in harpoons)
             {
@@ -312,13 +327,13 @@ namespace Bubblewright
                 }
             }
 
-            if (!wick.Invulnerable && !wick.Dead)
+            if (!debug.god && !wick.Invulnerable && !wick.Dead)
             {
                 var box = wick.Hitbox;
                 foreach (var b in bubbles)
                 {
                     if (b.Popped || !b.Overlaps(box)) continue;
-                    wick.Hurt(b.Position.x);
+                    wick.Hurt(b.Position.x, storm ? T.stormDamage : 1);
                     freeze = T.hurtFreeze;
                     shake = T.shakeTime;
                     Sfx.Play(Sound.Hurt);
@@ -341,6 +356,23 @@ namespace Bubblewright
                 if (run.IsLastStage) RecordScore();
                 SetState(State.Clear);
             }
+        }
+
+        // ------------------------------------------------------------------ storm timer
+
+        float StageTimeLimit => T.stageTime + T.stageTimeGrowth * (run.Stage - 1);
+
+        /// <summary>The storm speeds every bubble up by playing their motion faster; their arcs stay the same shape.</summary>
+        float BubbleDt(float dt) => storm ? dt * T.stormSpeed : dt;
+
+        /// <summary>The clock ran out: bubbles go fast and hit harder until the stage is cleared.</summary>
+        void StartStorm()
+        {
+            storm = true;
+            stormClock = Mathf.Max(stormClock, StageTimeLimit);
+            stormBanner = 1.8f;
+            shake = T.shakeTime * 2f;
+            Sfx.Play(Sound.Hurt, 0.6f, 0.9f);
         }
 
         void TickClear(float dt)
@@ -369,7 +401,7 @@ namespace Bubblewright
         void TickOver(float dt)
         {
             wick.Tick(0f, dt, false);
-            for (int i = 0; i < bubbles.Count; i++) bubbles[i].Tick(dt);
+            for (int i = 0; i < bubbles.Count; i++) bubbles[i].Tick(BubbleDt(dt));
             if (stateTime > 0.8f && input.ConfirmPressed) StartRun();
         }
 
@@ -493,12 +525,14 @@ namespace Bubblewright
         void HandleDebugKeys()
         {
             if (input.DebugToggleHitboxes) showHitboxes = !showHitboxes;
-            if (input.DebugSpawn > 0 && (state == State.Play || state == State.Intro))
-            {
-                var kind = (BubbleKind)(input.DebugSpawn - 1);
-                float x = Random.Range(-T.HalfWidth + 3f, T.HalfWidth - 3f);
-                SpawnBubble(kind, 0, new Vector2(x, 9f), Random.value < 0.5f ? -1 : 1, 0f, false);
-            }
+            if (input.DebugSpawn > 0 && !paused && (state == State.Play || state == State.Intro))
+                DebugSpawn((BubbleKind)(input.DebugSpawn - 1));
+        }
+
+        void DebugSpawn(BubbleKind kind)
+        {
+            float x = Random.Range(-T.HalfWidth + 3f, T.HalfWidth - 3f);
+            SpawnBubble(kind, 0, new Vector2(x, 9f), Random.value < 0.5f ? -1 : 1, 0f, false);
         }
 
         // ------------------------------------------------------------------ HUD (placeholder, OnGUI)
@@ -539,8 +573,16 @@ namespace Bubblewright
                 GUI.DrawTexture(new Rect(topLeft.x + pad + i * (ft.width + 2) * k, topLeft.y + pad, ft.width * k, ft.height * k), ft);
             }
             GUI.color = Color.white;
-            Label($"STAGE {run.Stage}/{T.runLength}", topLeft.x + pad + run.MaxHearts * (ft.width + 2) * k + 4 * k, topLeft.y + pad + 2 * k, Palette.Cream, TextAnchor.UpperLeft, 200 * k);
-            Label($"{run.Score:000000}", topRight.x - pad - 200 * k, topLeft.y + pad + 2 * k, Palette.Cream, TextAnchor.UpperRight, 200 * k);
+            Label($"STAGE {run.Stage}/{T.runLength}", topLeft.x + pad + run.MaxHearts * (ft.width + 2) * k + 4 * k, topLeft.y + pad + 2 * k, UiText.Primary, TextAnchor.UpperLeft, 200 * k);
+
+            // Pause button in the top right corner, the score just left of it.
+            pauseButtonRect = new Rect(topRight.x - pad - 14 * k, topLeft.y + pad - k, 14 * k, 14 * k);
+            DrawPauseButton(pauseButtonRect, k);
+            Label($"{run.Score:000000}", pauseButtonRect.x - 6 * k - 200 * k, topLeft.y + pad + 2 * k, UiText.Primary, TextAnchor.UpperRight, 200 * k);
+
+            DrawStormTimer(topLeft, topRight, pad, k);
+            string cheats = DebugSummary();
+            if (cheats != null) Label(cheats, topLeft.x + pad, topLeft.y + pad + 16 * k, UiText.Warning, TextAnchor.UpperLeft, 300 * k);
 
             bool touchUi = Application.isMobilePlatform || input.TouchUsed;
             if (!touchUi)
@@ -590,7 +632,34 @@ namespace Bubblewright
                     break;
             }
 
+            if (stormBanner > 0f && state == State.Play)
+            {
+                Plate(Screen.height * 0.32f - 6 * k, 38 * k, k);
+                Centered("STORM!", Screen.height * 0.32f, 16 * k, UiText.Warning);
+                Centered($"Bubbles are faster and take {T.stormDamage} hearts", Screen.height * 0.32f + 20 * k, 8 * k, UiText.Primary);
+            }
+
             if (showHitboxes) DrawHitboxes(k);
+            if (paused) DrawPause(k, touchUi);
+        }
+
+        /// <summary>A thin bar across the top of the arena: mint, then blinking lemon near the end, coral once the storm hits.</summary>
+        void DrawStormTimer(Vector2 topLeft, Vector2 topRight, float pad, int k)
+        {
+            float limit = Mathf.Max(1f, StageTimeLimit);
+            float left = Mathf.Max(0f, limit - stormClock);
+            var track = new Rect(topLeft.x + pad, topLeft.y + 2 * k, topRight.x - topLeft.x - 2 * pad, 2 * k);
+            FillRect(track, WithAlpha(Palette.Ink, UiText.TimerTrackAlpha));
+
+            bool warn = !storm && left <= T.stormWarning;
+            bool blinkOff = warn && Mathf.FloorToInt(Time.unscaledTime * 4f) % 2 == 1 && !paused;
+            Color fill = storm ? Palette.Coral : warn ? Palette.Lemon : Palette.Mint;
+            if (storm) fill.a = 0.75f + 0.25f * Mathf.Sin(Time.unscaledTime * 10f);
+            float w = storm ? track.width : track.width * (left / limit);
+            if (!blinkOff) FillRect(new Rect(track.x, track.y, w, track.height), fill);
+
+            string text = storm ? "STORM" : $"{Mathf.FloorToInt(Mathf.Ceil(left) / 60f)}:{Mathf.CeilToInt(left) % 60:00}";
+            Centered(text, topLeft.y + pad + 2 * k, 8 * k, storm || warn ? UiText.Warning : UiText.Primary);
         }
 
         GUIStyle cardStyle;

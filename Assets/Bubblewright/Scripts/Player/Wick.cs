@@ -159,10 +159,18 @@ namespace Bubblewright
 
         public void OnFire() => fireKick = 0f;
 
-        public void Hurt(float fromX)
+        /// <summary>Debug mode: set hearts directly, for heals and extra hearts while playing.</summary>
+        public void SetHearts(int hearts)
+        {
+            Hearts = Mathf.Max(0, hearts);
+            SetVisible(true);
+        }
+
+        /// <summary>Normal bubbles take one heart; during the storm they take more.</summary>
+        public void Hurt(float fromX, int damage = 1)
         {
             if (Invulnerable || Dead) return;
-            Hearts--;
+            Hearts = Mathf.Max(0, Hearts - Mathf.Max(1, damage));
             invulnerable = T.invulnerableTime + ExtraInvulnerable;
             knockTimer = T.knockbackTime;
             float dir = transform.position.x >= fromX ? 1f : -1f;
