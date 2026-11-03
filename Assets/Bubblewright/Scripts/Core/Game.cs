@@ -8,8 +8,9 @@ using UnityEngine.Rendering.Universal;
 namespace Bubblewright
 {
     /// <summary>
-    /// Builds and runs the single prototype stage entirely from code: camera, stage, Wick, harpoon, bubbles,
-    /// touch controls and HUD. Drop it on an empty GameObject, or just press Play in any scene: if no Game
+    /// Builds and runs the prototype entirely from code: camera, stage, Wick, harpoons, bubbles,
+    /// touch controls and HUD. A run is a few generated stages with a pick-one-of-three upgrade between them;
+    /// losing every heart ends the run, and the next one starts again from stage 1. Drop it on an empty GameObject, or just press Play in any scene: if no Game
     /// exists one is created automatically.
     ///
     /// Units: 1 unit = 15 art pixels. Floor at y = 0, ceiling at y = 14, walls at x = -16 and +16.
@@ -18,7 +19,8 @@ namespace Bubblewright
     [DefaultExecutionOrder(-100)]
     public class Game : MonoBehaviour
     {
-        enum State { Intro, Play, Clear, Over }
+        enum State { Intro, Play, Clear, Pick, Over }
+        const string BestScoreKey = "Bubblewright.BestScore";
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void AutoBootstrap()
@@ -34,7 +36,7 @@ namespace Bubblewright
         Camera cam;
         Transform world, bubbleRoot;
         Wick wick;
-        Harpoon harpoon;
+        readonly List<Harpoon> harpoons = new List<Harpoon>();
         Effects fx;
         TouchControlsView touchView;
 
@@ -44,7 +46,13 @@ namespace Bubblewright
         float slowMo;
         float shake;
         bool turnedForCelebration, celebrating;
-        int score;
+        float shotTimer;
+        Run run;
+        int bestScore;
+        bool newBest;
+        List<Upgrade> choices = new List<Upgrade>();
+        int selected, lastMoveDir;
+        readonly Rect[] cardRects = new Rect[3]; // GUI space, written by OnGUI, read by TickPick
         bool showHitboxes;
         Vector3 cameraHome;
 
@@ -80,13 +88,14 @@ namespace Bubblewright
 
             bubbleRoot = new GameObject("Bubbles").transform;
             bubbleRoot.SetParent(world, false);
-            harpoon = Harpoon.Create(world);
+            harpoons.Add(Harpoon.Create(world));
             fx = Effects.Create(world);
             wick = Wick.Create(world, fx);
             Sfx.Create(transform);
             touchView = TouchControlsView.Create(world, cam);
 
-            StartStage();
+            try { bestScore = PlayerPrefs.GetInt(BestScoreKey, 0); } catch { bestScore = 0; }
+            StartRun();
         }
 
         /// <summary>
@@ -142,25 +151,57 @@ namespace Bubblewright
             if (spriteMaterial != null) sr.sharedMaterial = spriteMaterial;
         }
 
+        /// <summary>Permadeath: a new run starts from stage 1 with full hearts and no upgrades.</summary>
+        void StartRun()
+        {
+            run = new Run(Random.Range(1, 1000000));
+            newBest = false;
+            StartStage();
+        }
+
         void StartStage()
         {
             foreach (var b in bubbles) if (b) Destroy(b.gameObject);
             bubbles.Clear();
             hitBubbles.Clear();
             fx.Clear();
-            harpoon.Hide();
-            wick.ResetForStage(0f);
+            ApplyRunUpgrades();
+            HideHarpoons();
+            wick.ResetForStage(0f, run.Hearts);
             wick.Waving = true;
-            score = 0;
             freeze = slowMo = shake = 0f;
+            shotTimer = 0f;
             turnedForCelebration = celebrating = false;
 
-            foreach (var s in T.stageBubbles)
+            foreach (var s in StageGenerator.Generate(run.Stage, run.Rng))
             {
                 int tier = Mathf.Clamp(s.tier, 0, T.tiers.Length - 1);
                 SpawnBubble(s.kind, tier, s.position, s.direction >= 0 ? 1 : -1, 0f, false);
             }
             SetState(State.Intro);
+        }
+
+        void ApplyRunUpgrades()
+        {
+            wick.SpeedMultiplier = run.SpeedMultiplier;
+            wick.ExtraInvulnerable = run.ExtraInvulnerable;
+            while (harpoons.Count < run.Shots) harpoons.Add(Harpoon.Create(world));
+            foreach (var h in harpoons)
+            {
+                h.SpeedMultiplier = run.HarpoonSpeedMultiplier;
+                h.WidthMultiplier = run.HarpoonWidthMultiplier;
+                h.HoldTime = run.CableHold;
+            }
+        }
+
+        void HideHarpoons()
+        {
+            foreach (var h in harpoons) h.Hide();
+        }
+
+        void TickHarpoons(float dt)
+        {
+            foreach (var h in harpoons) h.Tick(dt);
         }
 
         void SetState(State s)
@@ -213,6 +254,7 @@ namespace Bubblewright
                 case State.Intro: TickIntro(dt); break;
                 case State.Play: TickPlay(dt); break;
                 case State.Clear: TickClear(dt); break;
+                case State.Pick: TickPick(dt); break;
                 case State.Over: TickOver(dt); break;
             }
 
@@ -237,23 +279,34 @@ namespace Bubblewright
         {
             wick.Tick(input.Move, dt, true);
 
-            if (!harpoon.Active && (input.FirePressed || (T.holdToRefire && input.FireHeld)))
+            // Up to run.Shots cables at once. Holding fire spaces extra cables out so they do not stack on one spot.
+            shotTimer += dt;
+            Harpoon free = null;
+            bool anyActive = false;
+            for (int i = 0; i < run.Shots && i < harpoons.Count; i++)
             {
-                harpoon.Fire(wick.LauncherTip);
+                if (harpoons[i].Active) anyActive = true;
+                else if (free == null) free = harpoons[i];
+            }
+            if (free != null && (input.FirePressed || (T.holdToRefire && input.FireHeld && (!anyActive || shotTimer >= T.multiShotGap))))
+            {
+                free.Fire(wick.LauncherTip);
+                shotTimer = 0f;
                 wick.OnFire();
                 fx.MuzzleFlash(wick.LauncherTip);
                 Sfx.Play(Sound.Fire);
             }
-            harpoon.Tick(dt);
+            TickHarpoons(dt);
 
             for (int i = 0; i < bubbles.Count; i++) bubbles[i].Tick(dt);
 
-            if (harpoon.Active)
+            foreach (var h in harpoons)
             {
+                if (!h.Active) continue;
                 for (int i = 0; i < bubbles.Count; i++)
                 {
-                    if (bubbles[i].Popped || !harpoon.Hits(bubbles[i])) continue;
-                    harpoon.Hide();
+                    if (bubbles[i].Popped || !h.Hits(bubbles[i])) continue;
+                    h.Hide();
                     Hit(bubbles[i]);
                     break;
                 }
@@ -271,7 +324,9 @@ namespace Bubblewright
                     Sfx.Play(Sound.Hurt);
                     if (wick.Dead)
                     {
-                        harpoon.Hide();
+                        HideHarpoons();
+                        run.Hearts = 0;
+                        RecordScore();
                         SetState(State.Over);
                         Sfx.Play(Sound.Over);
                     }
@@ -282,6 +337,8 @@ namespace Bubblewright
             if (state == State.Play && bubbles.Count == 0 && hitBubbles.Count == 0)
             {
                 slowMo = T.lastPopSlowMo;
+                run.Hearts = wick.Hearts;
+                if (run.IsLastStage) RecordScore();
                 SetState(State.Clear);
             }
         }
@@ -289,7 +346,7 @@ namespace Bubblewright
         void TickClear(float dt)
         {
             wick.Tick(0f, dt, false);
-            harpoon.Tick(dt);
+            TickHarpoons(dt);
             if (!turnedForCelebration && slowMo <= 0f)
             {
                 turnedForCelebration = true;
@@ -302,14 +359,75 @@ namespace Bubblewright
                 fx.Confetti((Vector2)wick.transform.position + new Vector2(0f, 2.5f), 40);
                 Sfx.Play(Sound.Clear);
             }
-            if (stateTime > 1.2f && input.ConfirmPressed) StartStage();
+            if (stateTime > 1.2f && input.ConfirmPressed)
+            {
+                if (run.IsLastStage) StartRun();
+                else OpenPick();
+            }
         }
 
         void TickOver(float dt)
         {
             wick.Tick(0f, dt, false);
             for (int i = 0; i < bubbles.Count; i++) bubbles[i].Tick(dt);
-            if (stateTime > 0.8f && input.ConfirmPressed) StartStage();
+            if (stateTime > 0.8f && input.ConfirmPressed) StartRun();
+        }
+
+        void RecordScore()
+        {
+            if (run.Score <= bestScore) return;
+            bestScore = run.Score;
+            newBest = true;
+            try { PlayerPrefs.SetInt(BestScoreKey, bestScore); PlayerPrefs.Save(); } catch { }
+        }
+
+        // ------------------------------------------------------------------ upgrade pick
+
+        void OpenPick()
+        {
+            choices = run.RollChoices(cardRects.Length);
+            if (choices.Count == 0)
+            {
+                NextStage();
+                return;
+            }
+            selected = choices.Count / 2;
+            lastMoveDir = (int)Mathf.Sign(input.Move) * (input.Move != 0f ? 1 : 0);
+            for (int i = 0; i < cardRects.Length; i++) cardRects[i] = Rect.zero;
+            SetState(State.Pick);
+        }
+
+        /// <summary>Tap or click a card; or left/right then Enter, Space or pad A; or press 1-3.</summary>
+        void TickPick(float dt)
+        {
+            wick.Tick(0f, dt, false);
+            int dir = input.Move > 0f ? 1 : input.Move < 0f ? -1 : 0;
+            bool moved = dir != 0 && dir != lastMoveDir;
+            lastMoveDir = dir;
+            if (stateTime < 0.35f) return; // so a tap meant for the clear screen does not pick a card
+
+            if (moved) selected = (selected + dir + choices.Count) % choices.Count;
+            if (input.DebugSpawn >= 1 && input.DebugSpawn <= choices.Count) { Choose(input.DebugSpawn - 1); return; }
+            if (input.TapPosition is Vector2 tap)
+            {
+                var gui = new Vector2(tap.x, Screen.height - tap.y);
+                for (int i = 0; i < choices.Count; i++)
+                    if (cardRects[i].Contains(gui)) { Choose(i); return; }
+            }
+            if (input.KeyConfirmPressed) Choose(selected);
+        }
+
+        void Choose(int i)
+        {
+            run.Take(choices[i]);
+            Sfx.Play(Sound.Pop, 1.6f, 0.8f);
+            NextStage();
+        }
+
+        void NextStage()
+        {
+            run.Stage++;
+            StartStage();
         }
 
         /// <summary>The bubble swells and the game freezes for the hit-stop; it pops when the freeze ends.</summary>
@@ -332,8 +450,8 @@ namespace Bubblewright
         {
             bubbles.Remove(b);
             var kind = T.Kind(b.Kind);
-            score += T.tiers[b.Tier].score;
-            if (b.Kind == BubbleKind.Lucky) score += 500; // placeholder reward until upgrades exist
+            run.Score += T.tiers[b.Tier].score;
+            if (b.Kind == BubbleKind.Lucky) run.Score += 500; // placeholder reward
 
             fx.Pop(b.Position, b.Tier, kind.color, T.popSwell);
             Sfx.Play(Sound.Pop, 1f + b.Tier * 0.2f, 0.8f);
@@ -415,41 +533,161 @@ namespace Bubblewright
             // Hearts as little flames, top left
             var flame = PlaceholderArt.I.Flame;
             var ft = flame.texture;
-            for (int i = 0; i < T.hearts; i++)
+            for (int i = 0; i < run.MaxHearts; i++)
             {
                 GUI.color = i < wick.Hearts ? Color.white : new Color(1f, 1f, 1f, 0.25f);
                 GUI.DrawTexture(new Rect(topLeft.x + pad + i * (ft.width + 2) * k, topLeft.y + pad, ft.width * k, ft.height * k), ft);
             }
             GUI.color = Color.white;
-            Label($"STAGE 1", topLeft.x + pad + T.hearts * (ft.width + 2) * k + 4 * k, topLeft.y + pad + 2 * k, Palette.Cream, TextAnchor.UpperLeft, 200 * k);
-            Label($"{score:000000}", topRight.x - pad - 200 * k, topLeft.y + pad + 2 * k, Palette.Cream, TextAnchor.UpperRight, 200 * k);
+            Label($"STAGE {run.Stage}/{T.runLength}", topLeft.x + pad + run.MaxHearts * (ft.width + 2) * k + 4 * k, topLeft.y + pad + 2 * k, Palette.Cream, TextAnchor.UpperLeft, 200 * k);
+            Label($"{run.Score:000000}", topRight.x - pad - 200 * k, topLeft.y + pad + 2 * k, Palette.Cream, TextAnchor.UpperRight, 200 * k);
 
             bool touchUi = Application.isMobilePlatform || input.TouchUsed;
             if (!touchUi)
             {
                 Vector2 strip = WorldToGui(new Vector2(-T.HalfWidth, -T.groundStrip * 0.5f));
-                Label("A/D or arrows: move    Space: fire    Pad: stick + A    1-4: spawn bubble    F1: hitboxes    R: restart",
-                    strip.x + pad, strip.y - 4 * k, Palette.Lilac, TextAnchor.UpperLeft, Screen.width);
+                Label("A/D or arrows: move    Space: fire    Pad: stick + A    1-4: spawn bubble    F1: hitboxes    R: continue",
+                    strip.x + pad, strip.y - 10 * k, UiText.Secondary, TextAnchor.UpperLeft, Screen.width);
+                Label($"BUILD: {run.BuildSummary()}", strip.x + pad, strip.y + 2 * k, UiText.Primary, TextAnchor.UpperLeft, Screen.width);
             }
+            string best = newBest ? $"NEW BEST {bestScore}" : $"BEST {bestScore}";
 
             switch (state)
             {
                 case State.Clear when stateTime > 0.4f:
+                    if (stateTime > 1.2f) Plate(Screen.height * 0.32f - 6 * k, (run.IsLastStage ? 50 : 38) * k, k);
                     {
                         // Drops in from above the arena and bounces to rest.
                         float drop = Mathf.Clamp01((stateTime - 0.4f) / Mathf.Max(0.01f, T.bannerDropTime));
                         float y = Mathf.LerpUnclamped(topLeft.y - 20 * k, Screen.height * 0.32f, EaseOutBounce(drop));
-                        Centered("STAGE CLEAR", y, 16 * k, Palette.Cream);
+                        Centered(run.IsLastStage ? "RUN COMPLETE" : "STAGE CLEAR", y, 16 * k, Palette.Cream);
                     }
-                    if (stateTime > 1.2f) Centered(touchUi ? "Tap to play again" : "Press R, Enter or Start to play again", Screen.height * 0.32f + 22 * k, 8 * k, Palette.Lilac);
+                    if (stateTime > 1.2f)
+                    {
+                        float y0 = Screen.height * 0.32f + 22 * k;
+                        if (run.IsLastStage)
+                        {
+                            Centered($"SCORE {run.Score}    {best}", y0, 8 * k, UiText.Accent);
+                            Centered(touchUi ? "Tap to start a new run" : "Press R, Enter or Start for a new run", y0 + 12 * k, 8 * k, UiText.Secondary);
+                        }
+                        else Centered(touchUi ? "Tap to pick an upgrade" : "Press R, Enter or Start to pick an upgrade", y0, 8 * k, UiText.Secondary);
+                    }
+                    break;
+                case State.Pick:
+                    DrawPick(k, touchUi);
                     break;
                 case State.Over:
-                    Centered("THE FLAME WENT OUT", Screen.height * 0.32f, 14 * k, Palette.Cream);
-                    if (stateTime > 0.8f) Centered(touchUi ? "Tap to try again" : "Press R, Enter or Start to try again", Screen.height * 0.32f + 20 * k, 8 * k, Palette.Lilac);
+                    Plate(Screen.height * 0.32f - 6 * k, (stateTime > 0.8f ? 74 : 26) * k, k);
+                    Centered("THE FLAME WENT OUT", Screen.height * 0.32f, 14 * k, UiText.Primary);
+                    if (stateTime > 0.8f)
+                    {
+                        float y0 = Screen.height * 0.32f + 20 * k;
+                        Centered($"STAGE {run.Stage} OF {T.runLength}    SCORE {run.Score}    {best}", y0, 8 * k, UiText.Accent);
+                        Centered($"BUILD: {run.BuildSummary()}", y0 + 12 * k, 8 * k, UiText.Primary);
+                        Centered(touchUi ? "Tap to start a new run" : "Press R, Enter or Start for a new run", y0 + 24 * k, 8 * k, UiText.Secondary);
+                        Centered($"seed {run.Seed}", y0 + 36 * k, 8 * k, UiText.Secondary);
+                    }
                     break;
             }
 
             if (showHitboxes) DrawHitboxes(k);
+        }
+
+        GUIStyle cardStyle;
+        Vector2 lastMouse;
+
+        /// <summary>
+        /// Three cards over a dimmed stage. On desktop the card under the mouse (or picked with the keys) glows
+        /// as a whole: halo, mint border, lighter fill and a small lift. Phones have no hover, so no card is lit there.
+        /// Placeholder look until the real UI pass.
+        /// </summary>
+        void DrawPick(int k, bool touchUi)
+        {
+            FillRect(new Rect(0, 0, Screen.width, Screen.height), WithAlpha(Palette.Ink, UiText.DimAlpha));
+            float cy = Screen.height * 0.5f;
+            Centered($"STAGE {run.Stage} CLEAR  ·  PICK ONE", cy - 68 * k, 12 * k, UiText.Primary);
+
+            if (cardStyle == null) cardStyle = new GUIStyle(textStyle) { wordWrap = true, fontStyle = FontStyle.Normal, alignment = TextAnchor.UpperLeft };
+            cardStyle.fontSize = 8 * k;
+
+            float w = 120 * k, h = 84 * k, gap = 10 * k;
+            float x0 = (Screen.width - (choices.Count * w + (choices.Count - 1) * gap)) * 0.5f;
+            float top = cy - 44 * k;
+            bool canHover = !Application.isMobilePlatform;
+
+            // Hit-test against the resting card positions, so the lift never makes the hover flicker.
+            // Only a moving mouse takes the highlight, so a resting cursor does not fight the arrow keys.
+            Vector2 mouse = Event.current.mousePosition;
+            bool mouseMoved = (mouse - lastMouse).sqrMagnitude > 0.5f;
+            lastMouse = mouse;
+            for (int i = 0; i < choices.Count; i++)
+            {
+                cardRects[i] = new Rect(x0 + i * (w + gap), top, w, h);
+                if (canHover && mouseMoved && cardRects[i].Contains(mouse)) selected = i;
+            }
+
+            float pulse = 0.85f + 0.15f * Mathf.Sin(Time.unscaledTime * 5f);
+            for (int i = 0; i < choices.Count; i++)
+            {
+                bool lit = canHover && i == selected;
+                var r = cardRects[i];
+                if (lit)
+                {
+                    r.y -= 2 * k;
+                    for (int g = 4; g >= 1; g--) // soft halo around the whole card, outermost first
+                        FillRect(Grow(r, g * k), WithAlpha(Palette.Mint, 0.12f * pulse * (5 - g) / 4f));
+                }
+                int border = lit ? 2 * k : k;
+                FillRect(r, lit ? Palette.Mint : Palette.Lilac);
+                var inner = Grow(r, -border);
+                FillRect(inner, lit ? UiText.CardFillHover : UiText.CardFill);
+
+                var u = choices[i];
+                var iconBox = new Rect(inner.x + 5 * k, inner.y + 5 * k, 22 * k, 22 * k);
+                FillRect(iconBox, Palette.Ink);
+                if (lit) FillRect(Grow(iconBox, -k), WithAlpha(Palette.Mint, 0.15f));
+                int iconPx = PlaceholderArt.UpgradeIconSize;
+                GUI.DrawTexture(new Rect(iconBox.x + 2 * k, iconBox.y + 2 * k, iconPx * k, iconPx * k), PlaceholderArt.I.UpgradeIcon(u.Name));
+
+                int n = run.TimesTaken(u);
+                string title = u.Max > 1 && n > 0 ? $"{u.Name} {n + 1}" : u.Name;
+                Label(title, iconBox.xMax + 5 * k, iconBox.y + 6 * k, lit ? UiText.Accent : UiText.Primary, TextAnchor.UpperLeft, inner.xMax - iconBox.xMax - 8 * k);
+                SetTextColor(cardStyle, lit ? UiText.Primary : UiText.Secondary);
+                GUI.Label(new Rect(inner.x + 6 * k, iconBox.yMax + 4 * k, inner.width - 12 * k, inner.yMax - iconBox.yMax - 6 * k), u.Text, cardStyle);
+                if (!touchUi) Label($"{i + 1}", inner.xMax - 10 * k, inner.yMax - 14 * k, UiText.Secondary, TextAnchor.UpperLeft, 10 * k);
+            }
+
+            Centered($"HEARTS {run.Hearts}/{run.MaxHearts}    NEXT: STAGE {run.Stage + 1} OF {T.runLength}", top + h + 10 * k, 8 * k, UiText.Secondary);
+            Centered(touchUi ? "Tap a card" : "Left/right and Enter, 1-3, or click a card", top + h + 22 * k, 8 * k, UiText.Secondary);
+        }
+
+        /// <summary>A dark band behind banner text, so it reads over stars, the moon and bubbles.</summary>
+        void Plate(float y, float height, int k)
+        {
+            float w = Mathf.Min(Screen.width, 300 * k);
+            FillRect(new Rect((Screen.width - w) * 0.5f, y, w, height), WithAlpha(Palette.Ink, UiText.PlateAlpha));
+        }
+
+        static Rect Grow(Rect r, float by) => new Rect(r.x - by, r.y - by, r.width + 2 * by, r.height + 2 * by);
+
+        static Color WithAlpha(Color c, float a)
+        {
+            c.a = a;
+            return c;
+        }
+
+        /// <summary>Same colour in every state, so IMGUI never recolours just the label under the mouse.</summary>
+        static void SetTextColor(GUIStyle style, Color c)
+        {
+            style.normal.textColor = style.hover.textColor = style.active.textColor = style.focused.textColor = c;
+            style.onNormal.textColor = style.onHover.textColor = style.onActive.textColor = style.onFocused.textColor = c;
+        }
+
+        void FillRect(Rect r, Color c)
+        {
+            GUI.color = c;
+            GUI.DrawTexture(r, whiteTex);
+            GUI.color = Color.white;
         }
 
         static float EaseOutBounce(float t)
@@ -472,9 +710,9 @@ namespace Bubblewright
         {
             textStyle.alignment = anchor;
             var r = new Rect(x, y, width, textStyle.fontSize * 2f);
-            textStyle.normal.textColor = Palette.Ink;
+            SetTextColor(textStyle, Palette.Ink);
             GUI.Label(new Rect(r.x + 1, r.y + 1, r.width, r.height), text, textStyle);
-            textStyle.normal.textColor = color;
+            SetTextColor(textStyle, color);
             GUI.Label(r, text, textStyle);
         }
 

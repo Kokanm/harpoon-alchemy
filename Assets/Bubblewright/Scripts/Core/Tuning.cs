@@ -112,12 +112,25 @@ namespace Bubblewright
         [Range(0f, 1f)] public float volume = 0.7f;
         public bool mute;
 
-        [Header("Stage")]
-        public SpawnSpec[] stageBubbles =
-        {
-            new SpawnSpec { kind = BubbleKind.Gloop,    tier = 0, position = new Vector2(-9f, 8f), direction = 1 },
-            new SpawnSpec { kind = BubbleKind.Trigloop, tier = 1, position = new Vector2(8f, 7f),  direction = -1 },
-        };
+        [Header("Run (roguelike loop)")]
+        [Tooltip("Stages in a full run. Clear the last one to win.")]
+        public int runLength = 6;
+        [Tooltip("Bubble budget for stage 1. The sheet's costs: XL 8, L 4, M 2, S 1.")]
+        public float budgetStart = 8f;
+        [Tooltip("Budget added for every stage after the first.")]
+        public float budgetGrowth = 4f;
+        [Tooltip("Budget cost per tier: XL, L, M, S.")]
+        public float[] tierCost = { 8f, 4f, 2f, 1f };
+        [Tooltip("Cost multiplier per kind: Gloop, Trigloop, Lead, Lucky. A Trigloop XL takes 40 pops instead of 15.")]
+        public float[] kindCostScale = { 1f, 2f, 1.25f, 1f };
+        [Tooltip("At most this many bubbles at the start of a stage; leftover budget is dropped.")]
+        public int maxStartBubbles = 4;
+        public int trigloopFromStage = 2;
+        public int leadFromStage = 3;
+        [Tooltip("Chance per stage (from stage 2) of a free Lucky bubble on top of the budget.")]
+        [Range(0f, 1f)] public float luckyChance = 0.25f;
+        [Tooltip("With more than one cable, the gap between shots while fire is held.")]
+        public float multiShotGap = 0.15f;
 
         public float HalfWidth => arenaWidth * 0.5f;
         public float Pixel => 1f / pixelsPerUnit;
