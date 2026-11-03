@@ -29,9 +29,9 @@ Not in this step on purpose: ledges, the storm timer, other weapons, upgrades, a
 
 ## Open it on desktop
 
-1. Install **Unity Hub**, then **Unity 6000.3.27f2** (6.3 LTS). Add the modules **Android Build Support** (with OpenJDK and SDK/NDK) and, on a Mac, **iOS Build Support**.
+1. Install **Unity Hub**, then **Unity 6000.6.7f1**. Add the modules **Android Build Support** (with OpenJDK and SDK/NDK) and, on a Mac, **iOS Build Support**.
 2. Install Git LFS once per machine: `git lfs install`. Then clone this repo.
-3. In Unity Hub: **Add > Add project from disk**, pick the repo folder, open it. If Hub offers a slightly different 6000.3 version, accept it.
+3. In Unity Hub: **Add > Add project from disk**, pick the repo folder, open it. If Hub offers a slightly different version, accept it. The pinned editor is 6000.6.7f1.
 4. On first open:
    - If Unity asks to **enable the new Input System backends and restart**, click **Yes**. (Either answer works; the code supports both.)
    - The project setup runs by itself: it creates the URP 2D renderer, the tuning asset and `Assets/Scenes/Prototype.unity`. The Console says `[Bubblewright] Project setup done`. You can re-run it any time from the menu **Bubblewright > Run Project Setup**.
