@@ -29,7 +29,7 @@ Not in this step on purpose: ledges, the storm timer, other weapons, upgrades, a
 
 ## Open it on desktop
 
-1. Install **Unity Hub**, then **Unity 6.3 LTS** (any 6000.3.x). Add the modules **Android Build Support** (with OpenJDK and SDK/NDK) and, on a Mac, **iOS Build Support**.
+1. Install **Unity Hub**, then **Unity 6000.3.27f2** (6.3 LTS). Add the modules **Android Build Support** (with OpenJDK and SDK/NDK) and, on a Mac, **iOS Build Support**.
 2. Install Git LFS once per machine: `git lfs install`. Then clone this repo.
 3. In Unity Hub: **Add > Add project from disk**, pick the repo folder, open it. If Hub offers a slightly different 6000.3 version, accept it.
 4. On first open:
