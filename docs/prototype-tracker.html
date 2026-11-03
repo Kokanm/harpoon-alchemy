@@ -82,15 +82,16 @@ footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line)
 
 <script>
 // ---- Edit this block to update the tracker. status: "done" | "review" | "doing" | "todo" ----
-const UPDATED = "2 Nov 2026";
+const UPDATED = "3 Nov 2026";
 const STEPS = [
-  { title: "Visual direction and design sheet", status: "review",
+  { title: "Visual direction and design sheet", status: "done",
     desc: "Style guide with palette, player, bubbles, weapons, a sample stage mockup and animation notes, plus a one-page summary of the core loop.",
-    note: "Design sheet ready for Kokan's review. Working title Bubblewright, hero Wick, portrait 3:4 arena. Five open questions need answers.",
+    note: "Approved by Kokan on 3 Nov (version 5). Bubblewright: pixel art at 480 x 270, landscape, Wick plays with his back to the camera, bubbles have no eyes, no jumping.",
     link: { label: "Open the design sheet", href: "https://claude.ai/artifact/1gTaySmyLvPqnkRrDUxyZ5" } },
-  { title: "Repo and movement prototype", status: "todo",
+  { title: "Repo and movement prototype", status: "review",
     desc: "Unity project with player movement, harpoon shot, and bubble physics and splitting on one stage. Touch controls first, keyboard and gamepad too.",
-    note: "" },
+    note: "Pull request ready for Kokan to open in Unity 6.3 and test on desktop and a phone. Not yet run in the Unity editor.",
+    link: { label: "Open the pull request", href: "https://github.com/Kokanm/roguelike-pang/pull/1" } },
   { title: "Animation and game-feel pass", status: "todo",
     desc: "Sprites from step 1 in game, squash and stretch, hit effects, screen shake and placeholder sound, all tuned on a phone.",
     note: "" },
