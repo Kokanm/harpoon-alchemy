@@ -1,0 +1,97 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b1d50fc76e0e48a292b3c1fa896286de, type: 3}
+  m_Name: Tuning
+  m_EditorClassIdentifier: Bubblewright::Bubblewright.Tuning
+  pixelsPerUnit: 15
+  referenceResolution: {x: 480, y: 270}
+  arenaWidth: 32
+  arenaHeight: 14
+  groundStrip: 4
+  runSpeed: 9
+  accelTime: 0.06
+  stopTime: 0.04
+  hitbox: {x: 1, y: 1.4666667}
+  launcherTip: {x: 0.33333334, y: 1.6666666}
+  hearts: 3
+  hurtFreeze: 0.12
+  invulnerableTime: 1.5
+  knockback: 1
+  knockbackTime: 0.15
+  harpoonSpeed: 20
+  holdToRefire: 1
+  bubbleSpeedX: 4
+  tiers:
+  - name: XL
+    diameter: 3.5
+    peakHeight: 13
+    bounceTime: 3
+    score: 50
+  - name: L
+    diameter: 2.5
+    peakHeight: 11
+    bounceTime: 2.6
+    score: 100
+  - name: M
+    diameter: 1.6
+    peakHeight: 8.5
+    bounceTime: 2.2
+    score: 150
+  - name: S
+    diameter: 0.9
+    peakHeight: 6
+    bounceTime: 1.8
+    score: 200
+  kinds:
+  - kind: 0
+    color: {r: 1, g: 0.41568628, b: 0.36078432, a: 1}
+    children: 2
+    peakScale: 1
+    speedScale: 1
+    bounceTimeScale: 1
+  - kind: 1
+    color: {r: 0.24705882, g: 0.6627451, b: 1, a: 1}
+    children: 3
+    peakScale: 1
+    speedScale: 1
+    bounceTimeScale: 1
+  - kind: 2
+    color: {r: 0.7529412, g: 0.38431373, b: 0.9098039, a: 1}
+    children: 2
+    peakScale: 0.7
+    speedScale: 1.4
+    bounceTimeScale: 0.6
+  - kind: 3
+    color: {r: 0.95686275, g: 0.9098039, b: 0.3529412, a: 1}
+    children: 2
+    peakScale: 1
+    speedScale: 1
+    bounceTimeScale: 1
+  childKickHeight: 2
+  trigloopMiddleKick: 1.6
+  childStartScale: 0.7
+  childGrowTime: 0.25
+  popHitStop: 0.04
+  shakeTime: 0.15
+  shakePixels: 3
+  lastPopSlowMo: 0.4
+  introTime: 0.9
+  turnTime: 0.2
+  stageBubbles:
+  - kind: 0
+    tier: 0
+    position: {x: -9, y: 8}
+    direction: 1
+  - kind: 1
+    tier: 1
+    position: {x: 8, y: 7}
+    direction: -1
