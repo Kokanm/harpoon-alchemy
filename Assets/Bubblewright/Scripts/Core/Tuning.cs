@@ -132,6 +132,18 @@ namespace Bubblewright
         [Tooltip("With more than one cable, the gap between shots while fire is held.")]
         public float multiShotGap = 0.15f;
 
+        [Header("Storm timer")]
+        [Tooltip("Seconds on the clock for stage 1. The clock runs only while playing, not in the intro.")]
+        public float stageTime = 60f;
+        [Tooltip("Seconds added for every stage after the first (bigger budgets need longer).")]
+        public float stageTimeGrowth = 6f;
+        [Tooltip("When the clock runs out, every bubble moves this much faster.")]
+        public float stormSpeed = 1.6f;
+        [Tooltip("Hearts a bubble takes during the storm.")]
+        public int stormDamage = 2;
+        [Tooltip("The bar turns lemon and blinks for the last seconds.")]
+        public float stormWarning = 10f;
+
         public float HalfWidth => arenaWidth * 0.5f;
         public float Pixel => 1f / pixelsPerUnit;
 
