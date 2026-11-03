@@ -23,7 +23,7 @@ namespace Bubblewright
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void AutoBootstrap()
         {
-            if (FindFirstObjectByType<Game>() == null) new GameObject("Game").AddComponent<Game>();
+            if (FindAnyObjectByType<Game>() == null) new GameObject("Game").AddComponent<Game>();
         }
 
         Tuning T => Tuning.I;
