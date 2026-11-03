@@ -29,6 +29,7 @@ namespace Bubblewright
         Tuning T => Tuning.I;
         readonly GameInput input = new GameInput();
         readonly List<Bubble> bubbles = new List<Bubble>();
+        readonly List<Bubble> hitBubbles = new List<Bubble>(); // swelling during the hit-stop, popped when it ends
 
         Camera cam;
         Transform world, bubbleRoot;
@@ -80,8 +81,9 @@ namespace Bubblewright
             bubbleRoot = new GameObject("Bubbles").transform;
             bubbleRoot.SetParent(world, false);
             harpoon = Harpoon.Create(world);
-            wick = Wick.Create(world);
             fx = Effects.Create(world);
+            wick = Wick.Create(world, fx);
+            Sfx.Create(transform);
             touchView = TouchControlsView.Create(world, cam);
 
             StartStage();
@@ -144,9 +146,11 @@ namespace Bubblewright
         {
             foreach (var b in bubbles) if (b) Destroy(b.gameObject);
             bubbles.Clear();
+            hitBubbles.Clear();
             fx.Clear();
             harpoon.Hide();
             wick.ResetForStage(0f);
+            wick.Waving = true;
             score = 0;
             freeze = slowMo = shake = 0f;
             turnedForCelebration = celebrating = false;
@@ -196,6 +200,7 @@ namespace Bubblewright
                 touchView.Refresh(input, T);
                 return;
             }
+            PopHitBubbles();
             if (slowMo > 0f)
             {
                 slowMo -= dt;
@@ -222,6 +227,7 @@ namespace Bubblewright
             wick.Tick(0f, dt, false);
             if (stateTime >= T.introTime || input.AnyInput || input.Move != 0f || input.FireHeld)
             {
+                wick.Waving = false;
                 wick.Turn(false);
                 SetState(State.Play);
             }
@@ -235,6 +241,8 @@ namespace Bubblewright
             {
                 harpoon.Fire(wick.LauncherTip);
                 wick.OnFire();
+                fx.MuzzleFlash(wick.LauncherTip);
+                Sfx.Play(Sound.Fire);
             }
             harpoon.Tick(dt);
 
@@ -244,9 +252,9 @@ namespace Bubblewright
             {
                 for (int i = 0; i < bubbles.Count; i++)
                 {
-                    if (!harpoon.Hits(bubbles[i])) continue;
+                    if (bubbles[i].Popped || !harpoon.Hits(bubbles[i])) continue;
                     harpoon.Hide();
-                    Pop(bubbles[i]);
+                    Hit(bubbles[i]);
                     break;
                 }
             }
@@ -256,20 +264,22 @@ namespace Bubblewright
                 var box = wick.Hitbox;
                 foreach (var b in bubbles)
                 {
-                    if (!b.Overlaps(box)) continue;
+                    if (b.Popped || !b.Overlaps(box)) continue;
                     wick.Hurt(b.Position.x);
                     freeze = T.hurtFreeze;
                     shake = T.shakeTime;
+                    Sfx.Play(Sound.Hurt);
                     if (wick.Dead)
                     {
                         harpoon.Hide();
                         SetState(State.Over);
+                        Sfx.Play(Sound.Over);
                     }
                     break;
                 }
             }
 
-            if (state == State.Play && bubbles.Count == 0)
+            if (state == State.Play && bubbles.Count == 0 && hitBubbles.Count == 0)
             {
                 slowMo = T.lastPopSlowMo;
                 SetState(State.Clear);
@@ -289,6 +299,8 @@ namespace Bubblewright
             {
                 celebrating = true;
                 wick.Celebrate();
+                fx.Confetti((Vector2)wick.transform.position + new Vector2(0f, 2.5f), 40);
+                Sfx.Play(Sound.Clear);
             }
             if (stateTime > 1.2f && input.ConfirmPressed) StartStage();
         }
@@ -300,6 +312,22 @@ namespace Bubblewright
             if (stateTime > 0.8f && input.ConfirmPressed) StartStage();
         }
 
+        /// <summary>The bubble swells and the game freezes for the hit-stop; it pops when the freeze ends.</summary>
+        void Hit(Bubble b)
+        {
+            b.Swell(T.popSwell);
+            hitBubbles.Add(b);
+            freeze = Mathf.Max(freeze, T.popHitStop);
+            if (b.Tier == 0) shake = T.shakeTime; // only XL pops shake, so it keeps its meaning
+        }
+
+        void PopHitBubbles()
+        {
+            if (hitBubbles.Count == 0) return;
+            foreach (var b in hitBubbles) Pop(b);
+            hitBubbles.Clear();
+        }
+
         void Pop(Bubble b)
         {
             bubbles.Remove(b);
@@ -307,9 +335,8 @@ namespace Bubblewright
             score += T.tiers[b.Tier].score;
             if (b.Kind == BubbleKind.Lucky) score += 500; // placeholder reward until upgrades exist
 
-            fx.Pop(b.Position, b.Tier, kind.color);
-            freeze = T.popHitStop;
-            if (b.Tier == 0) shake = T.shakeTime; // only XL pops shake, so it keeps its meaning
+            fx.Pop(b.Position, b.Tier, kind.color, T.popSwell);
+            Sfx.Play(Sound.Pop, 1f + b.Tier * 0.2f, 0.8f);
 
             int next = b.Tier + 1;
             if (next < T.tiers.Length)
@@ -408,7 +435,12 @@ namespace Bubblewright
             switch (state)
             {
                 case State.Clear when stateTime > 0.4f:
-                    Centered("STAGE CLEAR", Screen.height * 0.32f, 16 * k, Palette.Cream);
+                    {
+                        // Drops in from above the arena and bounces to rest.
+                        float drop = Mathf.Clamp01((stateTime - 0.4f) / Mathf.Max(0.01f, T.bannerDropTime));
+                        float y = Mathf.LerpUnclamped(topLeft.y - 20 * k, Screen.height * 0.32f, EaseOutBounce(drop));
+                        Centered("STAGE CLEAR", y, 16 * k, Palette.Cream);
+                    }
                     if (stateTime > 1.2f) Centered(touchUi ? "Tap to play again" : "Press R, Enter or Start to play again", Screen.height * 0.32f + 22 * k, 8 * k, Palette.Lilac);
                     break;
                 case State.Over:
@@ -418,6 +450,16 @@ namespace Bubblewright
             }
 
             if (showHitboxes) DrawHitboxes(k);
+        }
+
+        static float EaseOutBounce(float t)
+        {
+            const float n = 7.5625f, d = 2.75f;
+            if (t < 1f / d) return n * t * t;
+            if (t < 2f / d) { t -= 1.5f / d; return n * t * t + 0.75f; }
+            if (t < 2.5f / d) { t -= 2.25f / d; return n * t * t + 0.9375f; }
+            t -= 2.625f / d;
+            return n * t * t + 0.984375f;
         }
 
         Vector2 WorldToGui(Vector2 world)

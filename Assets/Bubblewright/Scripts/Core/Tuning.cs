@@ -69,13 +69,48 @@ namespace Bubblewright
         public float childStartScale = 0.7f;
         public float childGrowTime = 0.25f;
 
-        [Header("Feel (starting values; step 3 tunes these)")]
+        [Header("Feel (starting values from the sheet's animation table)")]
+        [Tooltip("Game freezes this long when a bubble is hit; the bubble swells meanwhile.")]
         public float popHitStop = 0.04f;
+        [Tooltip("A hit bubble swells to this scale before it pops.")]
+        public float popSwell = 1.15f;
         public float shakeTime = 0.15f;
         public int shakePixels = 3;
         public float lastPopSlowMo = 0.4f;
         public float introTime = 0.9f;
         public float turnTime = 0.2f;
+        [Tooltip("The turn also stretches him a little taller at its thinnest point.")]
+        public float turnStretchY = 1.06f;
+
+        [Header("Wick animation")]
+        [Tooltip("Run start: stretch (x, y) that eases back to round over runStartTime.")]
+        public Vector2 runStartStretch = new Vector2(0.9f, 1.1f);
+        public float runStartTime = 0.06f;
+        [Tooltip("Degrees he leans into the run.")]
+        public float runLean = 8f;
+        [Tooltip("Stop or reverse from at least this fraction of top speed to skid.")]
+        public float skidMinSpeed = 0.5f;
+        public float skidTime = 0.08f;
+        [Tooltip("Degrees he leans back while skidding.")]
+        public float skidLean = 6f;
+        [Tooltip("Settle squash (x, y) at the end of a skid.")]
+        public Vector2 skidSettle = new Vector2(1.05f, 0.95f);
+        public Vector2 fireSquash = new Vector2(1.1f, 0.9f);
+        public float fireTime = 0.07f;
+        [Tooltip("Pixels the launcher kicks down when firing.")]
+        public int fireKickPixels = 2;
+        [Tooltip("Hurt: he shows as a cream silhouette for the freeze plus this long.")]
+        public float hurtFlashTime = 0.06f;
+        public float celebrateTime = 0.9f;
+        [Tooltip("Units high for each celebration hop.")]
+        public float celebrateHop = 0.8f;
+        public float celebrateFlameScale = 1.3f;
+        [Tooltip("Seconds the stage-clear banner takes to drop in.")]
+        public float bannerDropTime = 0.4f;
+
+        [Header("Sound (placeholder, generated in code)")]
+        [Range(0f, 1f)] public float volume = 0.7f;
+        public bool mute;
 
         [Header("Stage")]
         public SpawnSpec[] stageBubbles =

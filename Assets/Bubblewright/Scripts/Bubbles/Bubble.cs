@@ -66,6 +66,7 @@ namespace Bubblewright
                 p.y = r;
                 Velocity.y = T.BounceSpeed(Kind, Tier);
                 squashTimer = 0f;
+                Sfx.Play(Sound.Bounce, 1f + Tier * 0.25f, 0.5f - Tier * 0.1f); // big bubbles thud, small ones tap
             }
             if (p.y + r >= T.arenaHeight)
             {
@@ -109,6 +110,13 @@ namespace Bubblewright
                     : new Vector3(0.9f * grow, 1.12f * grow, 1f);
             s.z = 1f;
             transform.localScale = s;
+        }
+
+        /// <summary>Hit: swell during the hit-stop, then the game pops it.</summary>
+        public void Swell(float scale)
+        {
+            Popped = true;
+            transform.localScale = new Vector3(grow * scale, grow * scale, 1f);
         }
 
         /// <summary>Circle vs axis-aligned rectangle.</summary>

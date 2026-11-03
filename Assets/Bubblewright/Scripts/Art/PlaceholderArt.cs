@@ -10,15 +10,28 @@ namespace Bubblewright
     public class PlaceholderArt
     {
         public Sprite WickBack, WickFront, Flame;
+        public Sprite WickBackFlash, WickFrontFlash; // cream silhouettes for the hurt flash
+        public Sprite Launcher, LauncherFlash, Hand;
         public Sprite[,] Bubbles; // [kind, tier]
+        public Sprite[] BubbleFlash; // cream silhouette per tier, for the pop flash frame
         public Sprite[] PopRings; // per tier
         public Sprite HarpoonTip, Rope;
         public Sprite Background;
         public Sprite FireButton, FireButtonPressed, MoveHint, MoveKnob, MoveDot;
-        public Sprite Droplet, Pixel;
+        public Sprite Droplet, Pixel, Dust, MuzzleFlash;
 
         /// <summary>Height of the harpoon tip sprite above its pivot, in pixels.</summary>
         public const int HarpoonTipHeight = 8;
+
+        /// <summary>Launcher column (left edge) in Wick's 23 px sprite: back view raised in his right hand, front view on the viewer's left.</summary>
+        public const int LauncherBackX = 15, LauncherFrontX = 6;
+
+        /// <summary>
+        /// Where the launcher sprite sits relative to Wick's feet, in pixels. Its bottom-left pixel is
+        /// 2 px left of the launcher column (room for the hand and outline) and 13 px up.
+        /// </summary>
+        public static Vector2 LauncherOffsetPixels(bool front) =>
+            new Vector2((front ? LauncherFrontX : LauncherBackX) - 2 - 11.5f, 13f);
 
         static PlaceholderArt instance;
         public static PlaceholderArt I => instance ??= new PlaceholderArt(Tuning.I);
@@ -28,18 +41,24 @@ namespace Bubblewright
         PlaceholderArt(Tuning t)
         {
             ppu = t.pixelsPerUnit;
-            WickBack = BuildWick(false);
-            WickFront = BuildWick(true);
+            WickBack = BuildWick(false, out WickBackFlash);
+            WickFront = BuildWick(true, out WickFrontFlash);
             Flame = BuildFlame();
+            Launcher = BuildLauncher(out LauncherFlash);
+            Hand = BuildHand();
 
             int kindCount = System.Enum.GetValues(typeof(BubbleKind)).Length;
             Bubbles = new Sprite[kindCount, t.tiers.Length];
+            BubbleFlash = new Sprite[t.tiers.Length];
             PopRings = new Sprite[t.tiers.Length];
             for (int tier = 0; tier < t.tiers.Length; tier++)
             {
                 int d = Mathf.RoundToInt(t.tiers[tier].diameter * ppu);
                 for (int k = 0; k < kindCount; k++)
                     Bubbles[k, tier] = BuildBubble((BubbleKind)k, t.Kind((BubbleKind)k).color, d);
+                var disc = new PixelCanvas(d, d);
+                disc.Circle(d * 0.5f, d * 0.5f, d * 0.5f, Palette.Cream);
+                BubbleFlash[tier] = disc.ToSprite($"BubbleFlash_{d}px", new Vector2(d * 0.5f, d * 0.5f), ppu);
                 PopRings[tier] = BuildRing(Mathf.RoundToInt(d * 1.35f));
             }
 
@@ -59,11 +78,25 @@ namespace Bubblewright
             var px = new PixelCanvas(1, 1);
             px.Set(0, 0, new Color32(255, 255, 255, 255));
             Pixel = px.ToSprite("Pixel", new Vector2(0.5f, 0.5f), ppu);
+
+            // Dust: a soft 4 px puff with no outline, so it never reads as something you can hit.
+            var dust = new PixelCanvas(5, 5);
+            dust.Circle(2.5f, 2.5f, 2.3f, Palette.Mix(Palette.Lilac, Palette.Cream, 0.55f));
+            dust.Set(1, 3, Palette.Cream);
+            Dust = dust.ToSprite("Dust", new Vector2(2.5f, 1f), ppu);
+
+            // Muzzle flash: a mint star at the launcher tip, shown for one frame.
+            var mf = new PixelCanvas(7, 7);
+            mf.Rect(3, 0, 1, 7, Palette.Mint);
+            mf.Rect(0, 3, 7, 1, Palette.Mint);
+            mf.Rect(2, 2, 3, 3, Palette.Mint);
+            mf.Set(3, 3, Palette.Cream);
+            MuzzleFlash = mf.ToSprite("MuzzleFlash", new Vector2(3.5f, 1f), ppu);
         }
 
         // ---------------------------------------------------------------- Wick (23 x 30 px, pivot at feet)
 
-        Sprite BuildWick(bool front)
+        Sprite BuildWick(bool front, out Sprite flash)
         {
             var c = new PixelCanvas(23, 30);
             // Cloak: round body
@@ -90,26 +123,42 @@ namespace Bubblewright
                 c.Rect(9, 19, 1, 2, Palette.Cream);
                 c.Rect(14, 19, 1, 2, Palette.Cream);
                 c.RectOnFilled(11, 4, 1, 9, Palette.SaffronLine); // cloak opening
-                DrawLauncher(c, 6);  // his right hand is on the viewer's left
             }
             else
             {
                 c.RectOnFilled(11, 15, 1, 9, Palette.SaffronLine); // hood seam
-                DrawLauncher(c, 15); // raised in the right hand: shots start ~+0.35 u right of centre
             }
+            // The launcher is its own part (BuildLauncher) so it can kick and rise on its own.
 
             c.Outline(Palette.Ink);
-            return c.ToSprite(front ? "Wick_Front" : "Wick_Back", new Vector2(11.5f, 0f), ppu);
+            string name = front ? "Wick_Front" : "Wick_Back";
+            var pivot = new Vector2(11.5f, 0f);
+            flash = c.Silhouette(Palette.Cream).ToSprite(name + "_Flash", pivot, ppu);
+            return c.ToSprite(name, pivot, ppu);
         }
 
-        static void DrawLauncher(PixelCanvas c, int x)
+        /// <summary>Steel launcher and the hand gripping it. Pivot at the bottom-left; see LauncherOffsetPixels.</summary>
+        Sprite BuildLauncher(out Sprite flash)
         {
-            c.Rect(x, 14, 3, 11, Palette.Steel);
-            c.Rect(x, 14, 1, 11, Palette.SteelLight);
-            c.Rect(x + 2, 14, 1, 11, Palette.SteelDark);
-            c.Rect(x, 24, 3, 1, Palette.SteelLight);
-            // Hand gripping it
-            c.Rect(x - 1, 15, 2, 2, Palette.Saffron);
+            var c = new PixelCanvas(6, 13);
+            const int x = 2, y = 1;
+            c.Rect(x, y, 3, 11, Palette.Steel);
+            c.Rect(x, y, 1, 11, Palette.SteelLight);
+            c.Rect(x + 2, y, 1, 11, Palette.SteelDark);
+            c.Rect(x, y + 10, 3, 1, Palette.SteelLight);
+            c.Rect(x - 1, y + 1, 2, 2, Palette.Saffron); // hand
+            c.Outline(Palette.Ink);
+            flash = c.Silhouette(Palette.Cream).ToSprite("Launcher_Flash", Vector2.zero, ppu);
+            return c.ToSprite("Launcher", Vector2.zero, ppu);
+        }
+
+        /// <summary>His free hand, shown only when he waves or cheers. Pivot at the centre.</summary>
+        Sprite BuildHand()
+        {
+            var c = new PixelCanvas(5, 5);
+            c.Rect(1, 1, 3, 3, Palette.Saffron);
+            c.Outline(Palette.Ink);
+            return c.ToSprite("Hand", new Vector2(2.5f, 2.5f), ppu);
         }
 
         Sprite BuildFlame()

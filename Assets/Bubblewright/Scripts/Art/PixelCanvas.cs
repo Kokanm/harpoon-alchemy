@@ -87,6 +87,15 @@ namespace Bubblewright
                 }
         }
 
+        /// <summary>A copy with every filled pixel set to c, for one-colour flash frames.</summary>
+        public PixelCanvas Silhouette(Color32 c)
+        {
+            var copy = new PixelCanvas(Width, Height);
+            for (int i = 0; i < pixels.Length; i++)
+                if (pixels[i].a > 0) copy.pixels[i] = c;
+            return copy;
+        }
+
         public Texture2D ToTexture(string name)
         {
             var tex = new Texture2D(Width, Height, TextureFormat.RGBA32, false)
