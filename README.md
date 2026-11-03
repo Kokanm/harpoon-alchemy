@@ -25,7 +25,17 @@ One stage of World 1 (Rooftops) built entirely from code, using the numbers from
 - **Controls**: touch first, plus keyboard and gamepad (below).
 - Placeholder pixel art is painted in code from the sheet's shapes and palette (`PlaceholderArt.cs`), so there are no image files yet.
 
-Not in this step on purpose: ledges, the storm timer, other weapons, upgrades, audio, and most of the animation list (that is step 3).
+Not in step 2 on purpose: ledges, the storm timer, other weapons, upgrades, audio, and most of the animation list (that is step 3).
+
+## What step 3 adds (game feel, in progress)
+
+Timings come from the sheet's animation table and live in `Tuning.asset` under **Feel**, **Wick animation** and **Sound**.
+
+- **Wick**: run start stretches 0.9 x 1.1 and leans 8° with two dust puffs; stopping or reversing from speed skids (lean back 6°, one puff, 1.05 x 0.95 settle). Firing kicks the launcher down 2 px, squashes him and shows a one-frame mint muzzle flash. The launcher is now its own sprite part.
+- **Pops**: a hit bubble swells to 115% during the 40 ms hit-stop, then one cream flash frame, the ring, droplets and the children.
+- **Hurt**: Wick shows as a cream silhouette through the 120 ms freeze, then blinks.
+- **Intro and clear**: he waves and rocks while facing you, the turn swap hides behind a dust puff, the celebration is two hops (stretch up, squash and dust on landing, arms up on the second) with confetti, and STAGE CLEAR drops in with a bounce.
+- **Sound**: placeholder chiptune blips synthesised in code (`Scripts/FX/Sfx.cs`): fire, pop (higher for smaller bubbles), bounce, hurt, skid, turn, stage clear, game over. Volume and mute are in the tuning asset.
 
 ## Open it on desktop
 
@@ -73,10 +83,10 @@ Hold the phone sideways: left thumb drags to move, right thumb holds the mint bu
 ```
 Assets/Bubblewright/
   Scripts/Core/      Game (bootstrap and loop), Tuning (all numbers), GameInput (touch/keys/pad), Palette and sorting layers
-  Scripts/Player/    Wick: movement, facing turn, hurt, procedural squash and lean
+  Scripts/Player/    Wick: movement and all his procedural animation (run, skid, fire, hurt, turn, wave, celebrate)
   Scripts/Bubbles/   Bubble: own bounce maths, split children
   Scripts/Weapons/   Harpoon: cable and barbed tip
-  Scripts/FX/        Pop ring and droplets
+  Scripts/FX/        Effects (pop, dust, muzzle flash, confetti) and Sfx (placeholder sounds made in code)
   Scripts/UI/        Thumb controls drawn in the ground strip
   Scripts/Art/       PixelCanvas and PlaceholderArt: sprites painted in code at 15 px per unit
   Editor/            ProjectSetup: URP 2D renderer, tuning asset, player settings, scene
