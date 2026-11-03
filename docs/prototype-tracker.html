@@ -1,0 +1,128 @@
+<title>Roguelike Pang Prototype</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one narrow column; a progress bar of four "stage" segments, then a stacked list of steps. */
+:root {
+  --bg: #f3f5fa; --surface: #ffffff; --fg: #1a2033; --muted: #5d6680; --line: #dde2ee;
+  --accent: #2f5bff; --done: #1f9d6a; --doing: #e08a00; --todo: #a3abc2;
+  --display: "Bungee", "Impact", system-ui, sans-serif;
+  --body: "Chakra Petch", system-ui, -apple-system, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f1322; --surface: #171c2f; --fg: #e8ebf5; --muted: #98a1bd; --line: #283050;
+  --accent: #7d97ff; --done: #3fcf93; --doing: #ffb340; --todo: #5a6383; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0f1322; --surface: #171c2f; --fg: #e8ebf5; --muted: #98a1bd; --line: #283050;
+  --accent: #7d97ff; --done: #3fcf93; --doing: #ffb340; --todo: #5a6383; color-scheme: dark }
+
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 720px; margin: 0 auto; padding-block: 40px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 28px; }
+header { display: flex; flex-direction: column; gap: 8px; }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1 { font-family: var(--display); font-weight: 400; font-size: clamp(28px, 6vw, 40px); line-height: 1.05; margin: 0; text-wrap: balance; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 18px; color: var(--muted); font-size: 14px; }
+.meta b { color: var(--fg); font-weight: 600; }
+
+.bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.seg { height: 10px; border-radius: 5px; background: var(--line); }
+.seg.done { background: var(--done); }
+.seg.review { background: var(--accent); }
+.seg.doing { background: repeating-linear-gradient(135deg, var(--doing) 0 6px, color-mix(in srgb, var(--doing) 55%, transparent) 6px 12px); }
+.summary { font-family: var(--mono); font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+ol.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.step { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px;
+  display: grid; grid-template-columns: auto 1fr; gap: 4px 16px; }
+.step.doing { border-color: color-mix(in srgb, var(--doing) 60%, var(--line)); }
+.step.review { border-color: color-mix(in srgb, var(--accent) 60%, var(--line)); }
+.step.review .num { color: var(--accent); }
+.pill.review { color: var(--accent); }
+.note a { color: var(--accent); font-weight: 600; }
+.note a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.num { font-family: var(--display); font-size: 22px; line-height: 1.2; color: var(--todo); grid-row: span 3; }
+.step.done .num { color: var(--done); } .step.doing .num { color: var(--doing); }
+.head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; min-width: 0; }
+h2 { font-size: 17px; font-weight: 600; margin: 0; text-wrap: balance; }
+.pill { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
+  padding: 2px 8px; border-radius: 999px; border: 1px solid currentColor; }
+.pill.done { color: var(--done); } .pill.doing { color: var(--doing); } .pill.todo { color: var(--todo); }
+.desc { margin: 0; color: var(--muted); min-width: 0; }
+.note { margin: 4px 0 0; font-size: 14px; min-width: 0; }
+.note:empty { display: none; }
+
+footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); padding-top: 16px; }
+@media (max-width: 440px) { .step { padding: 16px; gap: 4px 12px; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Prototype tracker</span>
+    <h1>Roguelike Pang</h1>
+    <div class="meta">
+      <span>Engine <b>Unity 2D, URP</b></span>
+      <span>Platforms <b>Mobile, Desktop, Console</b></span>
+      <span>Updated <b id="updated"></b></span>
+    </div>
+  </header>
+
+  <section aria-label="Overall progress" style="display:flex;flex-direction:column;gap:8px">
+    <div class="bar" id="bar"></div>
+    <div class="summary" id="summary"></div>
+  </section>
+
+  <ol class="steps" id="steps"></ol>
+
+  <footer>Goal: a playable prototype to nail the design, animations and movement. A polished game comes later, in a separate project.</footer>
+</div>
+
+<script>
+// ---- Edit this block to update the tracker. status: "done" | "review" | "doing" | "todo" ----
+const UPDATED = "2 Nov 2026";
+const STEPS = [
+  { title: "Visual direction and design sheet", status: "review",
+    desc: "Style guide with palette, player, bubbles, weapons, a sample stage mockup and animation notes, plus a one-page summary of the core loop.",
+    note: "Design sheet ready for Kokan's review. Working title Bubblewright, hero Wick, portrait 3:4 arena. Five open questions need answers.",
+    link: { label: "Open the design sheet", href: "https://claude.ai/artifact/1gTaySmyLvPqnkRrDUxyZ5" } },
+  { title: "Repo and movement prototype", status: "todo",
+    desc: "Unity project with player movement, harpoon shot, and bubble physics and splitting on one stage. Touch controls first, keyboard and gamepad too.",
+    note: "" },
+  { title: "Animation and game-feel pass", status: "todo",
+    desc: "Sprites from step 1 in game, squash and stretch, hit effects, screen shake and placeholder sound, all tuned on a phone.",
+    note: "" },
+  { title: "Thin roguelike loop", status: "todo",
+    desc: "A few procedural stages, permadeath, and a pick-one-of-three upgrade screen between stages, so the full run can be judged.",
+    note: "" },
+];
+// ---------------------------------------------------------------------------------
+
+const LABEL = { done: "Done", review: "Awaiting review", doing: "In progress", todo: "Not started" };
+document.getElementById("updated").textContent = UPDATED;
+document.getElementById("bar").innerHTML = STEPS.map(s => `<div class="seg ${s.status}" title="${s.title}"></div>`).join("");
+const done = STEPS.filter(s => s.status === "done").length;
+const doing = STEPS.find(s => s.status === "doing" || s.status === "review");
+document.getElementById("summary").textContent =
+  `${done} of ${STEPS.length} steps done` + (doing ? ` · now: ${doing.title} (${LABEL[doing.status].toLowerCase()})` : "");
+const list = document.getElementById("steps");
+STEPS.forEach((s, i) => {
+  const li = document.createElement("li");
+  li.className = `step ${s.status}`;
+  li.innerHTML = `<span class="num">${i + 1}</span>
+    <div class="head"><h2></h2><span class="pill ${s.status}">${LABEL[s.status]}</span></div>
+    <p class="desc"></p><p class="note"></p>`;
+  li.querySelector("h2").textContent = s.title;
+  li.querySelector(".desc").textContent = s.desc;
+  const note = li.querySelector(".note");
+  note.textContent = s.note;
+  if (s.link) {
+    const a = document.createElement("a");
+    a.href = s.link.href; a.target = "_blank"; a.rel = "noopener"; a.textContent = s.link.label;
+    note.append(" ", a);
+  }
+  list.appendChild(li);
+});
+</script>
