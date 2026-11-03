@@ -141,7 +141,12 @@ namespace Bubblewright
             int border = lit ? 2 * k : k;
             FillRect(r, lit ? Palette.Mint : Palette.Lilac);
             FillRect(Grow(r, -border), lit ? UiText.CardFillHover : UiText.CardFill);
-            Label(label, r.x, r.y + (r.height - 10 * k) * 0.5f, lit ? UiText.Accent : UiText.Primary, TextAnchor.UpperCenter, r.width);
+            // Middle-centred in the button itself, so the text sits in the middle whatever the font's line height is.
+            textStyle.alignment = TextAnchor.MiddleCenter;
+            SetTextColor(textStyle, Palette.Ink);
+            GUI.Label(new Rect(r.x + 1, r.y + 1, r.width, r.height), label, textStyle);
+            SetTextColor(textStyle, lit ? UiText.Accent : UiText.Primary);
+            GUI.Label(r, label, textStyle);
         }
 
         // ------------------------------------------------------------------ debug panel
