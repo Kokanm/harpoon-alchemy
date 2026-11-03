@@ -16,6 +16,8 @@ namespace Bubblewright
         public static readonly Color32 SaffronDark = Hex(0xD9782A);
         public static readonly Color32 SaffronLine = Hex(0xB85A1C);
         public static readonly Color32 Mint = Hex(0x5BE6C1);
+        /// <summary>Halfway between lilac and cream: secondary text that stays readable on the sky (lilac alone is 2.9:1 on dusk).</summary>
+        public static readonly Color32 Mist = Hex(0xC7BDD3);
         // Weapons
         public static readonly Color32 SteelLight = Hex(0xDCE2EE);
         public static readonly Color32 Steel = Hex(0x9AA4BC);

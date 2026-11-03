@@ -24,6 +24,10 @@ namespace Bubblewright
         public bool FirePressed { get; private set; }
         public bool ConfirmPressed { get; private set; }
         public bool AnyInput { get; private set; }
+        /// <summary>Confirm from keys or pad only, for menus where a tap should hit a button instead.</summary>
+        public bool KeyConfirmPressed { get; private set; }
+        /// <summary>Screen position (pixels, origin bottom left) of a finger or click that began this frame.</summary>
+        public Vector2? TapPosition { get; private set; }
 
         // Desktop debug helpers: 1-4 spawn an XL bubble of each type, F1 toggles hitboxes.
         public int DebugSpawn { get; private set; }
@@ -140,6 +144,7 @@ namespace Bubblewright
             FireHeld = keyFire || touchFire;
             FirePressed = keyFirePressed || touchFirePressed;
             ConfirmPressed = confirm || touchBegan;
+            KeyConfirmPressed = confirm;
             AnyInput = any || touchBegan;
         }
 
@@ -148,6 +153,7 @@ namespace Bubblewright
             fire = false;
             firePressed = false;
             anyBegan = false;
+            TapPosition = null;
             float half = Screen.width * 0.5f;
 
             // Drop pointers that lifted.
@@ -159,6 +165,7 @@ namespace Bubblewright
                 if (!p.began) continue;
                 anyBegan = true;
                 TouchUsed = true;
+                TapPosition ??= p.position;
                 if (p.position.x < half && padPointer == NoPointer)
                 {
                     padPointer = p.id;

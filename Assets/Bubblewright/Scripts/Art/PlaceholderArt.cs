@@ -161,6 +161,102 @@ namespace Bubblewright
             return c.ToSprite("Hand", new Vector2(2.5f, 2.5f), ppu);
         }
 
+        // ---------------------------------------------------------------- Upgrade icons (18 x 18, drawn on the pick cards)
+
+        readonly System.Collections.Generic.Dictionary<string, Texture2D> upgradeIcons = new System.Collections.Generic.Dictionary<string, Texture2D>();
+
+        /// <summary>Icon for an upgrade card, by upgrade name. Built once, then cached.</summary>
+        public Texture2D UpgradeIcon(string name)
+        {
+            if (!upgradeIcons.TryGetValue(name, out var tex))
+            {
+                tex = BuildUpgradeIcon(name).ToTexture("Icon " + name);
+                upgradeIcons[name] = tex;
+            }
+            return tex;
+        }
+
+        public const int UpgradeIconSize = 18;
+
+        static PixelCanvas BuildUpgradeIcon(string name)
+        {
+            var c = new PixelCanvas(UpgradeIconSize, UpgradeIconSize);
+            // Arrowhead pointing up: rows of width 2w+1, 2w-1, ... centred on cx.
+            void Head(int cx, int y, int w, Color32 col)
+            {
+                for (int i = 0; i <= w; i++) c.Rect(cx - (w - i), y + i, 2 * (w - i) + 1, 1, col);
+            }
+            void Flame(float cx, float y, Color32 core)
+            {
+                c.Ellipse(cx, y + 3.5f, 3.2f, 3.4f, Palette.Saffron);
+                c.Ellipse(cx, y + 7f, 1.9f, 3.2f, Palette.Saffron);
+                c.Ellipse(cx, y + 3.5f, 1.6f, 2.1f, core);
+            }
+
+            switch (name)
+            {
+                case "Twin Cable":
+                    foreach (int x in new[] { 5, 12 })
+                    {
+                        c.Rect(x, 2, 1, 10, Palette.Steel);
+                        Head(x, 11, 2, Palette.SteelLight);
+                    }
+                    break;
+                case "Anchor Tip":
+                    c.Rect(8, 3, 2, 10, Palette.Steel);
+                    c.Rect(5, 11, 8, 2, Palette.Steel);
+                    c.Circle(9f, 15f, 2.2f, Palette.SteelLight);
+                    c.Set(8, 15, Palette.Clear);
+                    c.Set(9, 15, Palette.Clear);
+                    c.Rect(3, 2, 12, 2, Palette.Steel);
+                    c.Rect(2, 3, 2, 4, Palette.Steel);
+                    c.Rect(14, 3, 2, 4, Palette.Steel);
+                    Head(2, 6, 1, Palette.SteelLight);
+                    Head(15, 6, 1, Palette.SteelLight);
+                    break;
+                case "Quick Winch":
+                    c.Rect(8, 1, 2, 9, Palette.Mint);
+                    for (int i = 0; i < 4; i++) c.Rect(5 + i, 9 + i, 8 - 2 * i, 1, Palette.Mint);
+                    c.Rect(2, 4, 4, 1, Palette.Mist);
+                    c.Rect(3, 7, 3, 1, Palette.Mist);
+                    c.Rect(12, 5, 4, 1, Palette.Mist);
+                    break;
+                case "Wide Barbs":
+                    c.Rect(8, 1, 2, 7, Palette.Steel);
+                    for (int i = 0; i < 5; i++) c.Rect(2 + i * 2, 7 + i * 2, 14 - i * 4, 2, Palette.SteelLight);
+                    break;
+                case "Swift Boots":
+                    c.Rect(5, 2, 9, 1, Palette.SaffronLine);
+                    c.Rect(5, 3, 8, 3, Palette.Saffron);
+                    c.Rect(5, 5, 4, 8, Palette.Saffron);
+                    c.Rect(9, 9, 6, 1, Palette.Mint);
+                    c.Rect(10, 11, 6, 1, Palette.Mint);
+                    c.Rect(11, 13, 5, 1, Palette.Mint);
+                    break;
+                case "Long Glow":
+                    c.Circle(9f, 9f, 7.6f, Palette.Mist);
+                    c.Circle(9f, 9f, 6.4f, Palette.Clear);
+                    Flame(9f, 4f, Palette.Cream);
+                    break;
+                case "Spare Wick":
+                    Flame(7f, 2f, Palette.Cream);
+                    c.Rect(11, 11, 6, 2, Palette.Mint);
+                    c.Rect(13, 9, 2, 6, Palette.Mint);
+                    break;
+                case "Relight":
+                    Flame(9f, 3f, Palette.Lemon);
+                    c.Rect(3, 3, 1, 1, Palette.Cream);
+                    c.Rect(14, 6, 1, 1, Palette.Cream);
+                    c.Rect(4, 11, 1, 1, Palette.Cream);
+                    break;
+                default:
+                    c.Circle(9f, 9f, 5f, Palette.Mist);
+                    break;
+            }
+            c.Outline(Palette.Ink);
+            return c;
+        }
+
         Sprite BuildFlame()
         {
             var c = new PixelCanvas(9, 12);

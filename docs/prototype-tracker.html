@@ -92,12 +92,13 @@ const STEPS = [
     desc: "Unity project with player movement, harpoon shot, and bubble physics and splitting on one stage. Touch controls first, keyboard and gamepad too.",
     note: "Merged and running in Unity 6000.6.7f1 (3 Nov). Kokan tested it on a phone: it works well.",
     link: { label: "Open the pull request", href: "https://github.com/Kokanm/roguelike-pang/pull/1" } },
-  { title: "Animation and game-feel pass", status: "doing",
+  { title: "Animation and game-feel pass", status: "done",
     desc: "Sprites from step 1 in game, squash and stretch, hit effects, screen shake and placeholder sound, all tuned on a phone.",
-    note: "First pass in the editor (3 Nov): run start and skid with dust, launcher kick and muzzle flash, pop swell with hit-stop and flash, hurt flash, intro wave, celebration with confetti, bouncing stage-clear banner, and placeholder sounds made in code. Next: Kokan tries the timings on a phone, then real sprites." },
-  { title: "Thin roguelike loop", status: "todo",
+    note: "First pass in the editor (3 Nov): run start and skid with dust, launcher kick and muzzle flash, pop swell with hit-stop and flash, hurt flash, intro wave, celebration with confetti, bouncing stage-clear banner, and placeholder sounds made in code. Merged on 3 Nov. Real sprites still to come.",
+    link: { label: "Open the pull request", href: "https://github.com/Kokanm/roguelike-pang/pull/6" } },
+  { title: "Thin roguelike loop", status: "doing",
     desc: "A few procedural stages, permadeath, and a pick-one-of-three upgrade screen between stages, so the full run can be judged.",
-    note: "" },
+    note: "In the editor, ready to play (3 Nov). A run is 6 stages built from the sheet's bubble budget (8 points, plus 4 per stage; Trigloops from stage 2, Leads from stage 3, sometimes a free Lucky). Hearts carry over and losing them all restarts from stage 1. Between stages you pick 1 of 3 from 8 placeholder upgrades: Twin Cable, Anchor Tip, Quick Winch, Wide Barbs, Swift Boots, Long Glow, Spare Wick and Relight. Best score is saved. Not yet: ledges, storm timer, boss bubbles, new weapons, meta-progression." },
 ];
 // ---------------------------------------------------------------------------------
 

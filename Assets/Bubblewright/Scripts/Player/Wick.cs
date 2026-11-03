@@ -17,6 +17,11 @@ namespace Bubblewright
         public bool Dead => Hearts <= 0;
         /// <summary>Set by the game during the stage intro: he waves his free hand while facing the camera.</summary>
         public bool Waving { get; set; }
+        /// <summary>Run upgrades: multiplies top speed, and adds seconds of safety after a hit.</summary>
+        public float SpeedMultiplier { get; set; } = 1f;
+        public float ExtraInvulnerable { get; set; }
+
+        float RunSpeed => T.runSpeed * SpeedMultiplier;
 
         Tuning T => Tuning.I;
         float Px => 1f / T.pixelsPerUnit;
@@ -73,7 +78,7 @@ namespace Bubblewright
             launcherBackHome = launcherBack.transform.localPosition;
             launcherFrontHome = launcherFront.transform.localPosition;
 
-            ResetForStage(0f);
+            ResetForStage(0f, T.hearts);
         }
 
         SpriteRenderer MakePart(Transform parent, string name, Sprite sprite, Vector2 pos, int order)
@@ -88,11 +93,12 @@ namespace Bubblewright
             return sr;
         }
 
-        public void ResetForStage(float x)
+        /// <summary>Hearts carry over between stages, so the run passes them in.</summary>
+        public void ResetForStage(float x, int hearts)
         {
             transform.position = new Vector3(x, 0f, 0f);
             VelocityX = 0f;
-            Hearts = T.hearts;
+            Hearts = hearts;
             invulnerable = 0f;
             knockTimer = 0f;
             turnTimer = -1f;
@@ -157,7 +163,7 @@ namespace Bubblewright
         {
             if (Invulnerable || Dead) return;
             Hearts--;
-            invulnerable = T.invulnerableTime;
+            invulnerable = T.invulnerableTime + ExtraInvulnerable;
             knockTimer = T.knockbackTime;
             float dir = transform.position.x >= fromX ? 1f : -1f;
             knockVelocity = dir * T.knockback / Mathf.Max(0.01f, T.knockbackTime);
@@ -194,10 +200,10 @@ namespace Bubblewright
             }
             else
             {
-                float target = controllable && !Dead ? Mathf.Clamp(move, -1f, 1f) * T.runSpeed : 0f;
+                float target = controllable && !Dead ? Mathf.Clamp(move, -1f, 1f) * RunSpeed : 0f;
                 DetectRunEdges(target);
                 bool stopping = target == 0f || (VelocityX != 0f && Mathf.Sign(target) != Mathf.Sign(VelocityX));
-                float rate = T.runSpeed / Mathf.Max(0.001f, stopping ? T.stopTime : T.accelTime);
+                float rate = RunSpeed / Mathf.Max(0.001f, stopping ? T.stopTime : T.accelTime);
                 VelocityX = Mathf.MoveTowards(VelocityX, target, rate * dt);
                 pos.x += VelocityX * dt;
             }
@@ -216,7 +222,7 @@ namespace Bubblewright
             int want = target > 0f ? 1 : target < 0f ? -1 : 0;
             if (want == lastWantDir) return;
             int moving = VelocityX > 0f ? 1 : VelocityX < 0f ? -1 : 0;
-            if (moving != 0 && want != moving && Mathf.Abs(VelocityX) >= T.skidMinSpeed * T.runSpeed)
+            if (moving != 0 && want != moving && Mathf.Abs(VelocityX) >= T.skidMinSpeed * RunSpeed)
             {
                 skid = 0f;
                 skidDir = moving;
@@ -239,7 +245,7 @@ namespace Bubblewright
         {
             Vector3 scale = Vector3.one;
             float offsetY = 0f;
-            float speed01 = T.runSpeed > 0f ? VelocityX / T.runSpeed : 0f;
+            float speed01 = RunSpeed > 0f ? VelocityX / RunSpeed : 0f;
             float leanRate = T.runLean / Mathf.Max(0.01f, T.runStartTime);
 
             // Run: lean into the direction, bob 1 px per step at 8 steps/s. Idle: slow 1.6 s breathing squash.
