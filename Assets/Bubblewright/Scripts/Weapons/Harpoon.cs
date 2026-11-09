@@ -10,6 +10,12 @@ namespace Bubblewright
     public class Harpoon : MonoBehaviour
     {
         public bool Active { get; private set; }
+        public float X => x;
+        public float TipY => tipY;
+        public bool IsHooked => Active && held >= 0f;
+        public float HookedTime => held;
+        public bool CeilingTriggered { get; set; }
+        public float NextPulseTime { get; set; }
         /// <summary>Run upgrades: cable speed, extra hit width, and seconds the tip stays hooked in the ceiling.</summary>
         public float SpeedMultiplier { get; set; } = 1f;
         public float WidthMultiplier { get; set; } = 1f;
@@ -81,6 +87,8 @@ namespace Bubblewright
             tipY = from.y;
             held = -1f;
             clock = 0f;
+            CeilingTriggered = false;
+            NextPulseTime = 0.45f;
             Active = true;
             tip.enabled = rope.enabled = true;
             foreach (var t in tail) t.enabled = true;

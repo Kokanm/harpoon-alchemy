@@ -50,6 +50,7 @@ namespace Bubblewright
             yield return ("Card title", Primary, CardFill);
             yield return ("Card description", Secondary, CardFill);
             yield return ("Card number", Secondary, CardFill);
+            yield return ("Card fusion preview badge", Warning, CardFill);
             yield return ("Hovered card title", Accent, CardFillHover);
             yield return ("Hovered card description", Primary, CardFillHover);
             yield return ("Desktop help in the ground strip", Secondary, GroundStrip);
@@ -69,6 +70,7 @@ namespace Bubblewright
         {
             yield return ("Card border", Palette.Lilac, Dimmed);
             yield return ("Hovered card border", Palette.Mint, Dimmed);
+            yield return ("Fusion card border", Palette.Lemon, Dimmed);
             yield return ("Pause button border on the sky", Palette.Mist, SkyWorst);
             yield return ("Timer bar", Palette.Mint, TimerTrack);
             yield return ("Timer bar, last seconds", Palette.Lemon, TimerTrack);

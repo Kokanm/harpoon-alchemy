@@ -116,6 +116,28 @@ namespace Bubblewright
             }
         }
 
+        /// <summary>Jagged pixel lightning bolt between two world points for Spark Wire, Tesla Rod, and Tripwire Gate.</summary>
+        public void Zap(Vector2 from, Vector2 to, Color color, float duration = 0.14f)
+        {
+            var art = PlaceholderArt.I;
+            float dist = Vector2.Distance(from, to);
+            int steps = Mathf.Clamp(Mathf.CeilToInt(dist * 3.5f), 4, 28);
+            Vector2 dir = dist > 0.001f ? (to - from) / dist : Vector2.right;
+            Vector2 perp = new Vector2(-dir.y, dir.x);
+
+            for (int i = 0; i <= steps; i++)
+            {
+                float t = i / (float)steps;
+                float jag = (i == 0 || i == steps) ? 0f : Mathf.Sin(i * 2.3f + Time.time * 40f) * 0.18f;
+                Vector2 pt = Vector2.Lerp(from, to, t) + perp * jag;
+                var sr = Take(art.Droplet, 3);
+                sr.color = i % 2 == 0 ? Palette.Cream : color;
+                var p = Add(sr, pt, duration);
+                p.startScale = 1.15f;
+                p.endScale = 0.35f;
+            }
+        }
+
         public void Tick(float dt)
         {
             for (int i = live.Count - 1; i >= 0; i--)

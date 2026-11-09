@@ -19,6 +19,7 @@ namespace Bubblewright
         public Sprite Background;
         public Sprite FireButton, FireButtonPressed, MoveHint, MoveKnob, MoveDot;
         public Sprite Droplet, Pixel, Dust, MuzzleFlash;
+        public Sprite NeedleShard, AlkahestOrb;
 
         /// <summary>Height of the harpoon tip sprite above its pivot, in pixels.</summary>
         public const int HarpoonTipHeight = 8;
@@ -92,6 +93,22 @@ namespace Bubblewright
             mf.Rect(2, 2, 3, 3, Palette.Mint);
             mf.Set(3, 3, Palette.Cream);
             MuzzleFlash = mf.ToSprite("MuzzleFlash", new Vector2(3.5f, 1f), ppu);
+
+            // Horizontal needle shard for Cross-Stitch (7 x 5 px, pivot at centre).
+            var needle = new PixelCanvas(7, 5);
+            needle.Rect(1, 2, 5, 1, Palette.Mint);
+            needle.Rect(2, 1, 3, 3, Palette.SteelLight);
+            needle.Set(3, 2, Palette.Cream);
+            needle.Outline(Palette.Ink);
+            NeedleShard = needle.ToSprite("NeedleShard", new Vector2(3.5f, 2.5f), ppu);
+
+            // Rising acid/alchemy ember for Alkahest (9 x 9 px, pivot at centre).
+            var ember = new PixelCanvas(9, 9);
+            ember.Circle(4.5f, 4.5f, 3.4f, Palette.Mint);
+            ember.Circle(4.0f, 5.0f, 1.8f, Palette.Lemon);
+            ember.Set(3, 6, Palette.Cream);
+            ember.Outline(Palette.Ink);
+            AlkahestOrb = ember.ToSprite("AlkahestOrb", new Vector2(4.5f, 4.5f), ppu);
         }
 
         // ---------------------------------------------------------------- Wick (23 x 30 px, pivot at feet)
@@ -224,6 +241,34 @@ namespace Bubblewright
                 case "Wide Barbs":
                     c.Rect(8, 1, 2, 7, Palette.Steel);
                     for (int i = 0; i < 5; i++) c.Rect(2 + i * 2, 7 + i * 2, 14 - i * 4, 2, Palette.SteelLight);
+                    break;
+                case "Spark Wire":
+                    // Jagged lightning bolt in lemon + cream core
+                    c.Rect(10, 13, 4, 3, Palette.Lemon);
+                    c.Rect(7, 10, 5, 3, Palette.Lemon);
+                    c.Rect(5, 8, 8, 2, Palette.Cream);
+                    c.Rect(7, 5, 5, 3, Palette.Lemon);
+                    c.Rect(4, 2, 4, 3, Palette.Lemon);
+                    c.Rect(3, 6, 2, 2, Palette.Mint);
+                    c.Rect(13, 9, 2, 2, Palette.Mint);
+                    break;
+                case "Cross-Stitch":
+                    // Vertical steel shaft crossing a wide horizontal mint/cream double-headed needle
+                    c.Rect(8, 2, 2, 14, Palette.SteelLight);
+                    c.Rect(2, 8, 14, 2, Palette.Mint);
+                    c.Rect(4, 7, 2, 4, Palette.Cream);
+                    c.Rect(12, 7, 2, 4, Palette.Cream);
+                    c.Rect(2, 7, 2, 4, Palette.Mint);
+                    c.Rect(14, 7, 2, 4, Palette.Mint);
+                    break;
+                case "Alkahest":
+                    // Bubbling alchemy flask: mint/lemon globe with rising bubbles
+                    c.Circle(9f, 6.5f, 4.6f, Palette.Mint);
+                    c.Circle(9f, 5.8f, 2.6f, Palette.Lemon);
+                    c.Rect(7, 11, 4, 3, Palette.SteelLight);
+                    c.Rect(6, 13, 6, 1, Palette.Cream);
+                    c.Circle(6.5f, 15.2f, 1.3f, Palette.Mint);
+                    c.Circle(11.5f, 15.5f, 1.5f, Palette.Lemon);
                     break;
                 case "Swift Boots":
                     c.Rect(5, 2, 9, 1, Palette.SaffronLine);

@@ -38,10 +38,12 @@ namespace Bubblewright
 
         // Touch pad state, read by the on-screen view.
         public bool TouchUsed { get; private set; }
+        public bool FlipTouchSides { get; set; }
         public bool PadActive => padPointer != NoPointer;
         public Vector2 PadOrigin { get; private set; }
         public Vector2 PadCurrent { get; private set; }
         public bool TouchFireHeld { get; private set; }
+        public bool RerollPressed { get; private set; }
 
         const int NoPointer = int.MinValue;
         const int MousePointer = -1000;
@@ -77,6 +79,7 @@ namespace Bubblewright
             DebugToggleHitboxes = false;
             PausePressed = false;
             DebugPanelPressed = false;
+            RerollPressed = false;
 
 #if BW_INPUT_SYSTEM && ENABLE_INPUT_SYSTEM
             var kb = Keyboard.current;
@@ -95,6 +98,7 @@ namespace Bubblewright
                 DebugToggleHitboxes = kb.f1Key.wasPressedThisFrame;
                 PausePressed |= kb.escapeKey.wasPressedThisFrame || kb.pKey.wasPressedThisFrame;
                 DebugPanelPressed = kb.f2Key.wasPressedThisFrame;
+                RerollPressed |= kb.tabKey.wasPressedThisFrame;
             }
             var pad = Gamepad.current;
             if (pad != null)
@@ -105,6 +109,7 @@ namespace Bubblewright
                 keyFirePressed |= pad.buttonSouth.wasPressedThisFrame || pad.buttonWest.wasPressedThisFrame || pad.rightTrigger.wasPressedThisFrame || pad.rightShoulder.wasPressedThisFrame;
                 confirm |= pad.startButton.wasPressedThisFrame || pad.buttonSouth.wasPressedThisFrame;
                 PausePressed |= pad.startButton.wasPressedThisFrame;
+                RerollPressed |= pad.buttonNorth.wasPressedThisFrame;
                 any |= keyFirePressed || Mathf.Abs(x) > 0.35f;
             }
             var ts = Touchscreen.current;
@@ -138,6 +143,7 @@ namespace Bubblewright
             DebugToggleHitboxes = Input.GetKeyDown(KeyCode.F1);
             PausePressed = Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.P) || Input.GetKeyDown(KeyCode.JoystickButton7);
             DebugPanelPressed = Input.GetKeyDown(KeyCode.F2);
+            RerollPressed = Input.GetKeyDown(KeyCode.Tab) || Input.GetKeyDown(KeyCode.JoystickButton3);
             for (int i = 0; i < Input.touchCount; i++)
             {
                 var t = Input.GetTouch(i);
@@ -176,13 +182,14 @@ namespace Bubblewright
                 anyBegan = true;
                 TouchUsed = true;
                 TapPosition ??= p.position;
-                if (p.position.x < half && padPointer == NoPointer)
+                bool moveSide = FlipTouchSides ? p.position.x >= half : p.position.x < half;
+                if (moveSide && padPointer == NoPointer)
                 {
                     padPointer = p.id;
                     PadOrigin = p.position;
                     PadCurrent = p.position;
                 }
-                else if (p.position.x >= half)
+                else if (!moveSide)
                 {
                     firePointers.Add(p.id);
                     firePressed = true;

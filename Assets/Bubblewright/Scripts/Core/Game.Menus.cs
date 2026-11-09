@@ -18,8 +18,8 @@ namespace Bubblewright
         bool paused, debugPanel;
         int pauseSelected, debugStage = 1;
         Rect pauseButtonRect;
-        readonly Rect[] pauseRects = new Rect[3];
-        static readonly string[] PauseItems = { "RESUME", "RESTART RUN", "DEBUG" };
+        readonly Rect[] pauseRects = new Rect[4];
+        static readonly string[] PauseItems = { "RESUME", "RESTART RUN", "FLIP SIDES", "DEBUG" };
 
         bool CanPause => state == State.Intro || state == State.Play;
 
@@ -59,7 +59,7 @@ namespace Bubblewright
         {
             paused = true;
             debugPanel = openDebug;
-            pauseSelected = openDebug ? 2 : 0;
+            pauseSelected = openDebug ? 3 : 0;
             debugStage = run.Stage;
             lastMoveDir = input.Move > 0f ? 1 : input.Move < 0f ? -1 : 0;
             for (int i = 0; i < pauseRects.Length; i++) pauseRects[i] = Rect.zero;
@@ -78,7 +78,11 @@ namespace Bubblewright
             {
                 case 0: Resume(); break;
                 case 1: Resume(); StartRun(); break;
-                case 2: debugPanel = !debugPanel; break;
+                case 2:
+                    input.FlipTouchSides = !input.FlipTouchSides;
+                    Sfx.Play(Sound.Pop, 1.4f, 0.7f);
+                    break;
+                case 3: debugPanel = !debugPanel; break;
             }
         }
 
@@ -121,7 +125,9 @@ namespace Bubblewright
             }
             for (int i = 0; i < PauseItems.Length; i++)
             {
-                string label = i == 2 ? (debugPanel ? "HIDE DEBUG" : "DEBUG") : PauseItems[i];
+                string label = i == 2 ? (input.FlipTouchSides ? "SIDES: FLIPPED" : "FLIP SIDES")
+                             : i == 3 ? (debugPanel ? "HIDE DEBUG" : "DEBUG")
+                             : PauseItems[i];
                 DrawMenuButton(pauseRects[i], label, canHover && i == pauseSelected, k);
             }
 

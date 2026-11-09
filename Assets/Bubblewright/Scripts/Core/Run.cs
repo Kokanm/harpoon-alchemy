@@ -5,9 +5,44 @@ using UnityEngine;
 namespace Bubblewright
 {
     /// <summary>
+    /// Named pairwise Cable-Fusions unlocked automatically when a run holds both parent upgrades.
+    /// </summary>
+    public enum FusionKind
+    {
+        TripwireGate,   // Twin Cable + Anchor Tip
+        ArcTwin,        // Twin Cable + Spark Wire
+        VolleyLoom,     // Twin Cable + Cross-Stitch
+        TwinFlasks,     // Twin Cable + Alkahest
+        TeslaRod,       // Anchor Tip + Spark Wire
+        CeilingLoom,    // Anchor Tip + Cross-Stitch
+        AcidDrip,       // Anchor Tip + Alkahest
+        StormLance,     // Wide Barbs + Spark Wire
+        SawbladeBarbs,  // Wide Barbs + Cross-Stitch
+        CausticCloud,   // Wide Barbs + Alkahest
+    }
+
+    public readonly struct FusionSpec
+    {
+        public readonly FusionKind Kind;
+        public readonly string Name;
+        public readonly string FirstUpgrade;
+        public readonly string SecondUpgrade;
+        public readonly string Description;
+
+        public FusionSpec(FusionKind kind, string name, string first, string second, string description)
+        {
+            Kind = kind;
+            Name = name;
+            FirstUpgrade = first;
+            SecondUpgrade = second;
+            Description = description;
+        }
+    }
+
+    /// <summary>
     /// One run, from stage 1 until the flame goes out or the last stage is cleared. Permadeath: nothing
-    /// carries over to the next run except the best score. Hearts, score and upgrades live here, and the
-    /// game copies the upgrade numbers onto Wick and the harpoons at the start of every stage.
+    /// carries over to the next run except the best score. Hearts, score, upgrades and active cable fusions
+    /// live here, and the game copies the upgrade numbers onto Wick and the harpoons at the start of every stage.
     /// </summary>
     public class Run
     {
@@ -26,7 +61,31 @@ namespace Bubblewright
         public float ExtraInvulnerable;
         public int Shots = 1;
 
+        // Harpoon Alchemy payload ranks.
+        public int SparkRank;
+        public int NeedleRank;
+        public int EmberRank;
+
+        // Run-level meta/monetization state (1 free card reroll, 1 rewarded ad reroll, 1 rewarded heart relight).
+        public int FreeRerollsLeft = 1;
+        public bool AdRerollUsed;
+        public bool RelightAdUsed;
+
         readonly List<Upgrade> taken = new List<Upgrade>();
+
+        public static readonly FusionSpec[] AllFusions =
+        {
+            new FusionSpec(FusionKind.TripwireGate,  "Tripwire Gate",  "Twin Cable", "Anchor Tip",   "Two anchored cables snap a horizontal wire between them."),
+            new FusionSpec(FusionKind.ArcTwin,       "Arc Twin",       "Twin Cable", "Spark Wire",   "Active twin cables zap bubbles between their lines."),
+            new FusionSpec(FusionKind.VolleyLoom,    "Volley Loom",    "Twin Cable", "Cross-Stitch", "Harpoon pops fire a double horizontal needle burst."),
+            new FusionSpec(FusionKind.TwinFlasks,    "Twin Flasks",    "Twin Cable", "Alkahest",     "Pops release two counter-drifting acid embers."),
+            new FusionSpec(FusionKind.TeslaRod,      "Tesla Rod",      "Anchor Tip", "Spark Wire",   "Anchored ceiling cables pulse lightning every 0.45 s."),
+            new FusionSpec(FusionKind.CeilingLoom,   "Ceiling Loom",   "Anchor Tip", "Cross-Stitch", "Ceiling hooks fire needles at both top and mid-arena."),
+            new FusionSpec(FusionKind.AcidDrip,      "Acid Drip",      "Anchor Tip", "Alkahest",     "Hooked ceiling cablesspawn a rising ember at the floor."),
+            new FusionSpec(FusionKind.StormLance,    "Storm Lance",    "Wide Barbs", "Spark Wire",   "Chain lightning reaches +3.5 u further and jumps twice."),
+            new FusionSpec(FusionKind.SawbladeBarbs, "Sawblade Barbs", "Wide Barbs", "Cross-Stitch", "Horizontal needles are 2.5x wider and pierce 2 bubbles."),
+            new FusionSpec(FusionKind.CausticCloud,  "Caustic Cloud",  "Wide Barbs", "Alkahest",     "Alkahest embers swell to 1.8x radius and last longer."),
+        };
 
         public Run(int seed)
         {
@@ -44,13 +103,54 @@ namespace Bubblewright
             return n;
         }
 
+        public int TimesTaken(string upgradeName)
+        {
+            int n = 0;
+            foreach (var t in taken) if (t.Name == upgradeName) n++;
+            return n;
+        }
+
         public void Take(Upgrade u)
         {
             u.Apply(this);
             taken.Add(u);
         }
 
-        /// <summary>"Twin Cable, Swift Boots x2". Heals are not part of the build.</summary>
+        public bool HasFusion(FusionKind kind)
+        {
+            foreach (var f in AllFusions)
+            {
+                if (f.Kind != kind) continue;
+                return TimesTaken(f.FirstUpgrade) > 0 && TimesTaken(f.SecondUpgrade) > 0;
+            }
+            return false;
+        }
+
+        public List<FusionSpec> ActiveFusions()
+        {
+            var list = new List<FusionSpec>();
+            foreach (var f in AllFusions)
+                if (TimesTaken(f.FirstUpgrade) > 0 && TimesTaken(f.SecondUpgrade) > 0)
+                    list.Add(f);
+            return list;
+        }
+
+        /// <summary>
+        /// Returns the first new Fusion that picking candidate would immediately unlock with an already-held upgrade,
+        /// or null if picking candidate does not complete a new pair.
+        /// </summary>
+        public FusionSpec? PreviewFusion(Upgrade candidate)
+        {
+            if (candidate == null || TimesTaken(candidate) > 0) return null;
+            foreach (var f in AllFusions)
+            {
+                if (f.FirstUpgrade == candidate.Name && TimesTaken(f.SecondUpgrade) > 0) return f;
+                if (f.SecondUpgrade == candidate.Name && TimesTaken(f.FirstUpgrade) > 0) return f;
+            }
+            return null;
+        }
+
+        /// <summary>"Twin Cable, Spark Wire [Arc Twin]". Heals are not part of the build.</summary>
         public string BuildSummary()
         {
             var parts = new List<string>();
@@ -60,6 +160,8 @@ namespace Bubblewright
                 int n = TimesTaken(u);
                 if (n > 0) parts.Add(n > 1 ? $"{u.Name} x{n}" : u.Name);
             }
+            var fusions = ActiveFusions();
+            foreach (var f in fusions) parts.Add($"[{f.Name}]");
             return parts.Count == 0 ? "nothing yet" : string.Join(", ", parts);
         }
 
@@ -80,8 +182,9 @@ namespace Bubblewright
     }
 
     /// <summary>
-    /// A pick between stages. Placeholder set: every upgrade changes a number the prototype already has,
-    /// so none of them needs new art. Max 0 means it can be taken any number of times and is not listed in the build.
+    /// A pick between stages. Harpoon Alchemy set: 3 structural cable cards, 3 elemental/split payload cards
+    /// (which fuse pairwise with the structural cards), and 2 survival/utility cards.
+    /// Max 0 means it can be taken any number of times and is not listed in the build.
     /// </summary>
     public class Upgrade
     {
@@ -95,14 +198,19 @@ namespace Bubblewright
 
         public static readonly Upgrade[] All =
         {
-            new Upgrade { Name = "Twin Cable", Text = "One more harpoon on screen at a time.", Max = 2, Apply = r => r.Shots++ },
-            new Upgrade { Name = "Anchor Tip", Text = "The tip hooks into the ceiling and the cable stays for 1.5 s.", Apply = r => r.CableHold = 1.5f },
-            new Upgrade { Name = "Quick Winch", Text = "Harpoons fly 30% faster.", Max = 2, Apply = r => r.HarpoonSpeedMultiplier += 0.3f },
-            new Upgrade { Name = "Wide Barbs", Text = "Harpoons hit bubbles from twice as far to the side.", Apply = r => r.HarpoonWidthMultiplier = 2f },
-            new Upgrade { Name = "Swift Boots", Text = "Run 12% faster.", Max = 3, Apply = r => r.SpeedMultiplier += 0.12f },
-            new Upgrade { Name = "Long Glow", Text = "Stay safe 0.75 s longer after a hit.", Max = 2, Apply = r => r.ExtraInvulnerable += 0.75f },
-            new Upgrade { Name = "Spare Wick", Text = "One more heart, and it starts lit.", Max = 2, Apply = r => { r.MaxHearts++; r.Hearts++; } },
-            new Upgrade { Name = "Relight", Text = "Get back one lost heart.", Max = 0, Extra = r => r.Hearts < r.MaxHearts, Apply = r => r.Hearts++ },
+            // Structural cards (3)
+            new Upgrade { Name = "Twin Cable",   Text = "One more harpoon on screen at a time.", Max = 2, Apply = r => r.Shots++ },
+            new Upgrade { Name = "Anchor Tip",   Text = "The tip hooks into the ceiling and the cable stays for 1.5 s.", Apply = r => r.CableHold = 1.5f },
+            new Upgrade { Name = "Wide Barbs",   Text = "Harpoons hit bubbles from twice as far to the side.", Apply = r => r.HarpoonWidthMultiplier = 2f },
+
+            // Payload cards (3) — fuse pairwise with Structural cards
+            new Upgrade { Name = "Spark Wire",   Text = "Popping a bubble arcs lightning to zap a nearby bubble.", Max = 2, Apply = r => r.SparkRank++ },
+            new Upgrade { Name = "Cross-Stitch", Text = "Pops and ceiling hits fire horizontal needles left and right.", Max = 2, Apply = r => r.NeedleRank++ },
+            new Upgrade { Name = "Alkahest",     Text = "Popped bubbles release a rising acid ember that pops another.", Max = 2, Apply = r => r.EmberRank++ },
+
+            // Utility & survival cards (2)
+            new Upgrade { Name = "Swift Boots",  Text = "Run 15% faster and stay safe 0.6 s longer after a hit.", Max = 2, Apply = r => { r.SpeedMultiplier += 0.15f; r.ExtraInvulnerable += 0.6f; } },
+            new Upgrade { Name = "Relight",      Text = "Get back one lost heart.", Max = 0, Extra = r => r.Hearts < r.MaxHearts, Apply = r => r.Hearts++ },
         };
     }
 
@@ -158,6 +266,79 @@ namespace Bubblewright
                 side = -side;
             }
             return specs;
+        }
+
+        /// <summary>Total pops required to completely clear a single bubble of (kind, tier) and all its descendants.</summary>
+        public static int TotalPopsForBubble(BubbleKind kind, int tier)
+        {
+            var t = Tuning.I;
+            int tiersRemaining = Mathf.Max(0, t.tiers.Length - 1 - tier);
+            int children = Mathf.Max(1, t.Kind(kind).children);
+            int total = 1;
+            int layer = 1;
+            for (int i = 0; i < tiersRemaining; i++)
+            {
+                layer *= children;
+                total += layer;
+            }
+            return total;
+        }
+
+        /// <summary>Weighted difficulty score for a generated stage (total pops weighted by bubble horizontal speed).</summary>
+        public static float StageDifficultyScore(List<SpawnSpec> specs)
+        {
+            var t = Tuning.I;
+            float score = 0f;
+            foreach (var s in specs)
+            {
+                if (s.kind == BubbleKind.Lucky) continue;
+                int pops = TotalPopsForBubble(s.kind, s.tier);
+                float speedWeight = t.Kind(s.kind).speedScale;
+                score += pops * speedWeight;
+            }
+            return score;
+        }
+
+        /// <summary>
+        /// Validates that a generated stage has at least 1 non-Lucky bubble, stays inside arena walls/ceiling,
+        /// and keeps a safe horizontal spawn corridor around Wick at x = 0.
+        /// </summary>
+        public static bool ValidateStage(List<SpawnSpec> specs, out string reason)
+        {
+            var t = Tuning.I;
+            if (specs == null || specs.Count == 0)
+            {
+                reason = "Stage spawned zero bubbles.";
+                return false;
+            }
+            int combatBubbles = 0;
+            foreach (var s in specs)
+            {
+                if (s.kind != BubbleKind.Lucky) combatBubbles++;
+                float r = t.tiers[Mathf.Clamp(s.tier, 0, t.tiers.Length - 1)].diameter * 0.5f;
+                if (Mathf.Abs(s.position.x) + r > t.HalfWidth + 0.01f)
+                {
+                    reason = $"Bubble {s.kind} at x={s.position.x:F2} overlaps wall.";
+                    return false;
+                }
+                if (s.position.y + r > t.arenaHeight + 0.01f || s.position.y - r <= 0f)
+                {
+                    reason = $"Bubble {s.kind} at y={s.position.y:F2} out of vertical bounds.";
+                    return false;
+                }
+                if (Mathf.Abs(s.position.x) < 3.5f)
+                {
+                    reason = $"Bubble {s.kind} at x={s.position.x:F2} spawns too close to Wick at x=0.";
+                    return false;
+                }
+            }
+            if (combatBubbles == 0)
+            {
+                reason = "Stage has no combat bubbles.";
+                return false;
+            }
+            reason = null;
+            return true;
         }
 
         static BubbleKind PickKind(int stage, System.Random rng)

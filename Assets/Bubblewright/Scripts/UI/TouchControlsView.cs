@@ -48,11 +48,13 @@ namespace Bubblewright
             float rightX = cam.ScreenToWorldPoint(new Vector3(safe.xMax, 0f, 0f)).x;
 
             hint.enabled = show && !input.PadActive;
-            hint.transform.position = Snap(new Vector2(leftX + 4f, stripMid), t);
+            float hintX = input.FlipTouchSides ? rightX - 4f : leftX + 4f;
+            float fireX = input.FlipTouchSides ? leftX + 3f : rightX - 3f;
+            hint.transform.position = Snap(new Vector2(hintX, stripMid), t);
 
             fire.enabled = show;
             fire.sprite = input.TouchFireHeld ? PlaceholderArt.I.FireButtonPressed : PlaceholderArt.I.FireButton;
-            fire.transform.position = Snap(new Vector2(rightX - 3f, stripMid), t);
+            fire.transform.position = Snap(new Vector2(fireX, stripMid), t);
 
             knob.enabled = dot.enabled = show && input.PadActive;
             if (input.PadActive)
